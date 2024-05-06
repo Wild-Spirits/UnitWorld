@@ -1,0 +1,12 @@
+
+.vscode/
+CMakeSettings.json
+build/
+out/
+
+.vs/
+**.sln
+**.vcxproj
+**.vcxproj.filters
+**.vcxproj.user
+**.csproj
