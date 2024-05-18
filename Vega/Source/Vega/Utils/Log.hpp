@@ -19,8 +19,8 @@ namespace LM
         static Ref<Logger> GetClientLogger() { return s_ClientLogger; }
 
     protected:
-        static Ref<Logger> s_CoreLogger;
-        static Ref<Logger> s_ClientLogger;
+        static inline Ref<Logger> s_CoreLogger;
+        static inline Ref<Logger> s_ClientLogger;
     };
 
 }    // namespace LM

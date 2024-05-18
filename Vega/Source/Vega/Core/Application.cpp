@@ -73,6 +73,7 @@ namespace LM
             }
 
             m_Window->OnUpdate();
+            m_EventManager->DispatchEvents();
         }
     }
 

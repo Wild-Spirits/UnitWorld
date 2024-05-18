@@ -15,6 +15,7 @@ namespace LM
         WindowFocus,
         WindowLostFocus,
         WindowMoved,
+        WindowMonitorScaleChanged,
         AppTick,
         AppUpdate,
         AppRender,

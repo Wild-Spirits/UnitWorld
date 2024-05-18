@@ -1,5 +1,6 @@
 #include <Vega/Core/EntryPoint.hpp>
 
+#include <Vega/Layers/ImGuiLayer.hpp>
 #include <Vega/Utils/utf8.hpp>
 
 #include "EditorLayer.hpp"
@@ -10,7 +11,11 @@ namespace LM
     class App : public Application
     {
     public:
-        App(const ApplicationProps& _Props) : Application(_Props) { PushLayer(CreateRef<EditorLayer>()); }
+        App(const ApplicationProps& _Props) : Application(_Props)
+        {
+            PushLayer(CreateRef<EditorLayer>());
+            PushOverlay(CreateRef<ImGuiLayer>());
+        }
     };
 
     Application* CreateApplication(ApplicationCommandLineArgs _Args)

@@ -17,6 +17,8 @@ set(SOURCES
     Source/Vega/Core/MouseCodes.hpp
     Source/Vega/Core/EntryPoint.hpp
 
+    Source/Vega/Renderer/RendererBackend.hpp                                Source/Vega/Renderer/RendererBackend.cpp
+
     # Source/Vega/Buffers/BufferLayout.h
     # Source/Vega/Buffers/FrameBuffer.h                            Source/Vega/Buffers/FrameBuffer.cpp
     # Source/Vega/Buffers/VertexBuffer.h                           Source/Vega/Buffers/VertexBuffer.cpp
@@ -40,7 +42,7 @@ set(SOURCES
     
     Source/Vega/Layers/Layer.hpp                                            Source/Vega/Layers/Layer.cpp
     Source/Vega/Layers/LayerStack.hpp                                       Source/Vega/Layers/LayerStack.cpp
-    # Source/Vega/Layers/ImGuiLayer.h                              Source/Vega/Layers/ImGuiLayer.cpp
+    Source/Vega/Layers/ImGuiLayer.hpp                                       Source/Vega/Layers/ImGuiLayer.cpp
 
     # Source/Vega/Utils/Timer.h
     # Source/Vega/Utils/DataLoading.h
@@ -50,12 +52,18 @@ set(SOURCES
     # Source/Vega/Utils/json.hpp
     Source/Vega/Utils/utf8.hpp
 
+    Source/Vega/ImGui/Fonts/ImGuiFonts.hpp        
+    Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl
+    Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl
+
+    # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
     # Source/Vega/ImGui/Plots/implot_demo.cpp
     # Source/Vega/ImGui/Plots/implot_internal.h
     # Source/Vega/ImGui/Plots/implot_items.cpp
 
 
+    Source/Platform/Vulkan/Renderer/VkRendererBackend.hpp                   Source/Platform/Vulkan/Renderer/VkRendererBackend.cpp
     Source/Platform/OpenGL/Core/GLFWWindow.hpp                              Source/Platform/OpenGL/Core/GLFWWindow.cpp
     Source/Platform/Desktop/Core/GLFWInputs.cpp
 

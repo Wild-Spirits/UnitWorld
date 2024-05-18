@@ -14,6 +14,7 @@ namespace LM
 
         virtual void OnAttach(Ref<EventManager> _EventManager) { }
         virtual void OnDetach() { }
+
         virtual void OnUpdate() { }
         virtual void OnRender() { }
 

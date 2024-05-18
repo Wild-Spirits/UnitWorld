@@ -58,63 +58,63 @@ namespace LM
 
         Logger()
         {
-#ifdef _WIN32
-            std::unique_lock Lock(m_Mtx);
-            std::system("cls");
-#endif
+            // #ifdef _WIN32
+            //             std::unique_lock Lock(m_Mtx);
+            //             std::system("cls");
+            // #endif
         }
 
         void SetColor(ConsoleColorType _TXT = ConsoleTxtColor::White, ConsoleColorType _BG = ConsoleBgColor::Black);
 
         template <typename... Args>
-        void Trace(const std::string_view _LogFormat, Args&&... _Args)
+        void Trace(std::string_view _LogFormat, Args&&... _Args)
         {
             std::unique_lock Lock(m_Mtx);
             std::cerr << Format(s_FormatBase, "DEBUG");
-            std::cerr << Format(_LogFormat, _Args);
+            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
         }
 
         template <typename... Args>
-        void Info(const std::string_view _LogFormat, Args&&... _Args)
+        void Info(std::string_view _LogFormat, Args&&... _Args)
         {
             std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Green);
             std::cerr << Format(s_FormatBase, "INFO");
-            std::cerr << Format(_LogFormat, _Args);
+            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
             SetColor();
         }
 
         template <typename... Args>
-        void Warn(const std::string_view _LogFormat, Args&&... _Args)
+        void Warn(std::string_view _LogFormat, Args&&... _Args)
         {
             std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Yellow);
             std::cerr << Format(s_FormatBase, "WARN");
-            std::cerr << Format(_LogFormat, _Args);
+            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
             SetColor();
         }
 
         template <typename... Args>
-        void Error(const std::string_view _LogFormat, Args&&... _Args)
+        void Error(std::string_view _LogFormat, Args&&... _Args)
         {
             std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Red);
             std::cerr << Format(s_FormatBase, "ERROR");
-            std::cerr << Format(_LogFormat, _Args);
+            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
             SetColor();
         }
 
         template <typename... Args>
-        void Critical(const std::string_view _LogFormat, Args&&... _Args)
+        void Critical(std::string_view _LogFormat, Args&&... _Args)
         {
             std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Red);
             std::cerr << Format(s_FormatBase, "FATAL");
-            std::cerr << Format(_LogFormat, _Args);
+            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
             SetColor();
         }

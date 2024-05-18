@@ -34,4 +34,18 @@ namespace LM
         EVENT_CLASS_CATEGORY(EventCategoryApplication)
     };
 
+    class WindowMonitorScaleChangedEvent : public Event
+    {
+    public:
+        WindowMonitorScaleChangedEvent(float _Scale) : m_Scale(_Scale) {};
+
+        EVENT_CLASS_TYPE(WindowMonitorScaleChanged)
+        EVENT_CLASS_CATEGORY(EventCategoryApplication)
+
+        inline float GetScale() const { return m_Scale; }
+
+    protected:
+        float m_Scale;
+    };
+
 }    // namespace LM

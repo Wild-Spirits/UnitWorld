@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Vega/Core/Base.hpp"
+
 #include "Vega/Utils/Log.hpp"
+
 #include <filesystem>
 
 #ifdef LM_ENABLE_ASSERTS
