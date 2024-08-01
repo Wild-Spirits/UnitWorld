@@ -145,7 +145,7 @@ FetchContent_MakeAvailable(args)
 FetchContent_Declare(
     ImGui
     GIT_REPOSITORY https://github.com/mihaillatyshov/imgui.git
-    GIT_TAG e1d4b0481c1147a750502e5425f712e7516a7203
+    GIT_TAG 9cffb2251c431da627411015d69e1267336d6c8a
 )
 FetchContent_MakeAvailable(ImGui)
 
