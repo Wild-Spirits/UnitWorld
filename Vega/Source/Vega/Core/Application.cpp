@@ -27,18 +27,31 @@ namespace LM
         }
 
         m_EventManager = CreateRef<EventManager>();
-        m_Window = Window::Create(WindowProps { _Props.Name });
+
+        WindowProps windowProps = {
+            .Title = _Props.Name, .Width = 1280u, .Height = 720u, .RendererAPI = _Props.RendererAPI
+        };
+        m_Window = Window::Create(windowProps);
         m_Window->SetEventManager(m_EventManager);
+
+        m_RendererBackend = RendererBackend::Create(_Props.RendererAPI);
+        m_RendererBackend->Init();
 
         m_EventManager->Subscribe(EventHandler<WindowResizeEvent>(LM_BIND_EVENT_FN(OnWindowResize)));
         m_EventManager->Subscribe(EventHandler<WindowCloseEvent>(LM_BIND_EVENT_FN(OnWindowClose)));
     }
 
-    Application::~Application() { NFD_Quit(); }
+    Application::~Application()
+    {
+        m_RendererBackend->Shutdown();
+        NFD_Quit();
+    }
 
     void Application::PushLayer(Ref<Layer> _Layer)
     {
         m_LayerStack.PushLayer(_Layer);
+
+        const float model = 10;
         _Layer->OnAttach(m_EventManager);
     }
 
@@ -59,6 +72,8 @@ namespace LM
             float timestep = time - m_LastFrameTime;
             m_LastFrameTime = time;
 
+            m_RendererBackend->BeginFrame();
+
             for (Ref<Layer> layer : m_LayerStack)
             {
                 layer->OnUpdate();
@@ -71,6 +86,8 @@ namespace LM
                     layer->OnRender();
                 }
             }
+
+            m_RendererBackend->EndFrame();
 
             m_Window->OnUpdate();
             m_EventManager->DispatchEvents();

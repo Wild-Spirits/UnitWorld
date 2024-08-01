@@ -3,6 +3,7 @@
 #include "Vega/Core/Base.hpp"
 
 #include "Vega/Events/EventManager.hpp"
+#include "Vega/Renderer/RendererBackend.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -15,6 +16,7 @@ namespace LM
         std::string Title = "Vega";
         uint32_t Width = 1280u;
         uint32_t Height = 720u;
+        RendererBackend::API RendererAPI;
     };
 
     class Window

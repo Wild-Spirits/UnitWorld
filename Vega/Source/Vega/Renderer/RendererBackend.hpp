@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Vega/Core/Base.hpp"
 
 #include "glm/glm.hpp"
@@ -5,20 +7,21 @@
 namespace LM
 {
 
-    enum class RendererAPI : uint16_t
-    {
-        kNone = 0,
-        kVulkan,
-        kDirectX,
-        kOpenGl
-    };
-
     class RendererBackend
     {
     public:
+        enum class API : uint16_t
+        {
+            kNone = 0,
+            kVulkan,
+            kDirectX,
+            kOpenGL
+        };
+
+    public:
         virtual ~RendererBackend() = default;
 
-        virtual void Init() = 0;
+        virtual bool Init() = 0;
         virtual void Shutdown() = 0;
 
         virtual void BeginFrame() = 0;
@@ -27,14 +30,16 @@ namespace LM
         void SetClearColor(const glm::vec4& _ClearColor) { m_ClearColor = _ClearColor; }
         const glm::vec4& GetClearColor() const { return m_ClearColor; }
 
-        //virtual void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = 0) = 0;
+        static API GetAPI() { return s_API; }
 
-        static Ref<RendererBackend> Create(RendererAPI _RendererBackendType);
+        // virtual void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = 0) = 0;
+
+        static Ref<RendererBackend> Create(API _RendererAPI);
 
     protected:
         glm::vec4 m_ClearColor { 0.0f, 0.0f, 0.0f, 0.0f };
 
-        static inline RendererAPI s_RendererBackendType = RendererAPI::kNone;
+        static inline API s_API = API::kNone;
     };
 
 }    // namespace LM

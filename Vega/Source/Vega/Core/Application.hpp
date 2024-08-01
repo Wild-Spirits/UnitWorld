@@ -7,6 +7,7 @@
 #include "Vega/Events/EventManager.hpp"
 #include "Vega/Events/WindowEvent.hpp"
 #include "Vega/Layers/LayerStack.hpp"
+#include "Vega/Renderer/RendererBackend.hpp"
 
 #include <functional>
 
@@ -31,6 +32,7 @@ namespace LM
     {
         std::string Name = "LM Application";
         std::string WorkingDirectory;
+        RendererBackend::API RendererAPI = RendererBackend::API::kVulkan;
         ApplicationCommandLineArgs CommandLineArgs;
     };
 
@@ -43,13 +45,21 @@ namespace LM
         void PushLayer(Ref<Layer> _Layer);
         void PushOverlay(Ref<Layer> _Layer);
 
-        Window& GetWindow() { return *m_Window; }
+        Ref<Window> GetWindow() { return m_Window; }
 
         void Close();
 
         static Application& Get() { return *s_Instance; }
 
         const ApplicationProps& GetProps() const { return m_Props; }
+
+        const Ref<RendererBackend> GetRendererBackend() const { return m_RendererBackend; }
+
+        template <typename T>
+        const Ref<T> GetCastedRendererBackend() const
+        {
+            return std::dynamic_pointer_cast<T>(m_RendererBackend);
+        }
 
     private:
         void Run();
@@ -59,6 +69,7 @@ namespace LM
     private:
         ApplicationProps m_Props;
         Ref<Window> m_Window;
+        Ref<RendererBackend> m_RendererBackend;
         Ref<EventManager> m_EventManager;
         bool m_Running = true;
         bool m_Minimized = false;

@@ -5,17 +5,12 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_opengl3.h>
-
 #include "Vega/Core/Application.hpp"
 #include "Vega/Core/Inputs.hpp"
 #include "Vega/Events/EventDispatcher.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
 
-// TODO: Remove GLFW dependency
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
 #define USE_CUSTOM_FONT true
@@ -32,6 +27,7 @@ namespace LM
 
     void ImGuiLayer::OnAttach(Ref<EventManager> _EventManager)
     {
+        m_ImGuiImpl = ImGuiImpl::Create();
 
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
@@ -46,7 +42,7 @@ namespace LM
 
 #if USE_CUSTOM_FONT
 
-        SetFontSizeByMonitorScale(Application::Get().GetWindow().GetMonitorScale());
+        SetFontSizeByMonitorScale(Application::Get().GetWindow()->GetMonitorScale());
         m_ChangeSize = true;
         ChangeFontSize(false);
 
@@ -66,18 +62,12 @@ namespace LM
 
         SetDarkThemeColors();
 
-        Application& app = Application::Get();
-        GLFWwindow* window = static_cast<GLFWwindow*>(app.GetWindow().GetNativeWindow());
-
-        // Setup Platform/Renderer bindings
-        ImGui_ImplGlfw_InitForOpenGL(window, true);
-        ImGui_ImplOpenGL3_Init("#version 450");
+        m_ImGuiImpl->Init();
     }
 
     void ImGuiLayer::OnDetach()
     {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
+        m_ImGuiImpl->Shutdown();
         ImGui::DestroyContext();
     }
 
@@ -97,35 +87,11 @@ namespace LM
     //     }
     // }
 
-    void ImGuiLayer::Begin()
+    void ImGuiLayer::OnUpdate()
     {
         ChangeFontSize(true);
 
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-    }
-
-    void ImGuiLayer::End()
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        Application& app = Application::Get();
-        io.DisplaySize = ImVec2((float)app.GetWindow().GetWidth(), (float)app.GetWindow().GetHeight());
-
-        // Rendering
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            GLFWwindow* backup_current_context = glfwGetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(backup_current_context);
-        }
-    }
-
-    void ImGuiLayer::OnUpdate()
-    {
-        Begin();
+        m_ImGuiImpl->NewFrame();
 
         ImGui::NewFrame();
 
@@ -141,7 +107,7 @@ namespace LM
         ImGui::Render();
     }
 
-    void ImGuiLayer::OnRender() { End(); }
+    void ImGuiLayer::OnRender() { m_ImGuiImpl->RenderFrame(); }
 
     void ImGuiLayer::SetDarkThemeColors()
     {
@@ -223,8 +189,7 @@ namespace LM
             if (_NeedUpdateFontTexture && !isFontExists)
             {
                 io.Fonts->Build();
-                ImGui_ImplOpenGL3_DestroyFontsTexture();
-                ImGui_ImplOpenGL3_CreateFontsTexture();
+                m_ImGuiImpl->RecreateFontTexture();
             }
 
             LM_CORE_TRACE("ImGui font size: {}", m_FontSize);

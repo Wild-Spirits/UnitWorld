@@ -33,7 +33,7 @@ namespace LM
                 {
                     if (it->GetType() == _Handler->GetType())
                     {
-                        LM_ASSERT(false, "Attempting to double-register callback");
+                        LM_CORE_ASSERT(false, "Attempting to double-register callback");
                         return;
                     }
                 }

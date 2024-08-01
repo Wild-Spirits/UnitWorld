@@ -3,6 +3,7 @@
 #include "Vega/Events/KeyEvent.hpp"
 #include "Vega/Events/MouseEvent.hpp"
 #include "Vega/Events/WindowEvent.hpp"
+#include "Vega/ImGui/ImGuiImpl.hpp"
 #include "Vega/Layers/Layer.hpp"
 
 #include <unordered_map>
@@ -24,9 +25,6 @@ namespace LM
         virtual void OnUpdate() override;
         virtual void OnRender() override;
 
-        void Begin();
-        void End();
-
         void BlockEvents(bool block) { m_BlockEvents = block; }
 
         void SetDarkThemeColors();
@@ -38,6 +36,8 @@ namespace LM
         void SetFontSizeByMonitorScale(float _MonitorScale) { m_FontSize = static_cast<int>(14.0f * _MonitorScale); }
 
     private:
+        Scope<ImGuiImpl> m_ImGuiImpl;
+
         bool m_BlockEvents = true;
 
         bool m_ChangeSize = false;

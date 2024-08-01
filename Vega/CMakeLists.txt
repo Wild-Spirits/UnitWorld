@@ -52,9 +52,10 @@ set(SOURCES
     # Source/Vega/Utils/json.hpp
     Source/Vega/Utils/utf8.hpp
 
-    Source/Vega/ImGui/Fonts/ImGuiFonts.hpp        
+    Source/Vega/ImGui/Fonts/ImGuiFonts.hpp
     Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl
     Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl
+    Source/Vega/ImGui/ImGuiImpl.hpp                                         Source/Vega/ImGui/ImGuiImpl.cpp
 
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
@@ -63,9 +64,19 @@ set(SOURCES
     # Source/Vega/ImGui/Plots/implot_items.cpp
 
 
+    Source/Platform/Platform.hpp
+
+    Source/Platform/Vulkan/Platform/VkPlatform.hpp
+    Source/Platform/Vulkan/Platform/VkPlatformWindows.cpp
+    Source/Platform/Vulkan/ImGui/VkImGuiImpl.hpp                            Source/Platform/Vulkan/ImGui/VkImGuiImpl.cpp
+    Source/Platform/Vulkan/Utils/VkUtils.hpp                                Source/Platform/Vulkan/Utils/VkUtils.cpp
     Source/Platform/Vulkan/Renderer/VkRendererBackend.hpp                   Source/Platform/Vulkan/Renderer/VkRendererBackend.cpp
-    Source/Platform/OpenGL/Core/GLFWWindow.hpp                              Source/Platform/OpenGL/Core/GLFWWindow.cpp
+
+    Source/Platform/OpenGL/ImGui/OGLImGuiImpl.hpp                           Source/Platform/OpenGL/ImGui/OGLImGuiImpl.cpp
+    Source/Platform/OpenGL/Renderer/OGLRendererBackend.hpp                  Source/Platform/OpenGL/Renderer/OGLRendererBackend.cpp
+
     Source/Platform/Desktop/Core/GLFWInputs.cpp
+    Source/Platform/Desktop/Core/GLFWWindow.hpp                             Source/Platform/Desktop/Core/GLFWWindow.cpp
 
     # Source/Platform/OpenGL/Textures/OGLCalcTextureParameters.h     Source/Platform/OpenGL/Textures/OGLCalcTextureParameters.cpp
 
@@ -91,7 +102,7 @@ add_compile_definitions(GLEW_STATIC _LIB IMGUI_DEFINE_MATH_OPERATORS RES_FOLDER=
 add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
-target_link_libraries(${PROJECT_NAME} glm glfw glew stb ImGui nfd)
+target_link_libraries(${PROJECT_NAME} glm args glfw glew Vulkan::Vulkan stb ImGui nfd)
 
 if(MSVC)
     target_link_libraries(${PROJECT_NAME} opengl32)
@@ -106,7 +117,7 @@ include(FetchContent)
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG dd8a678a66f1967372e5a5e3deac41ebf65ee127
+    GIT_TAG b35641f4a3c62aa86a0b3c983d163bc0fe36026d
 )
 FetchContent_MakeAvailable(glfw)
 
@@ -123,6 +134,13 @@ FetchContent_Declare(
     GIT_TAG 4ecc8af5b9732bdc1cb7cdfb1105414c076a13fe
 )
 FetchContent_MakeAvailable(glm)
+
+FetchContent_Declare(
+    args
+    GIT_REPOSITORY https://github.com/Taywee/args.git
+    GIT_TAG e3e6e46699f1ce487a42fd64838f53daeb5aa89b
+)
+FetchContent_MakeAvailable(args)
 
 FetchContent_Declare(
     ImGui
@@ -144,6 +162,8 @@ FetchContent_Declare(
     GIT_TAG 75cbdf819785d9f94855987724e30a6ba0a87e29
 )
 FetchContent_MakeAvailable(nativefiledialog)
+
+find_package(Vulkan REQUIRED FATAL_ERROR)
 
 # add_subdirectory(tests)
 
