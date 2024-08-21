@@ -71,6 +71,7 @@ set(SOURCES
     Source/Platform/Vulkan/ImGui/VkImGuiImpl.hpp                            Source/Platform/Vulkan/ImGui/VkImGuiImpl.cpp
     Source/Platform/Vulkan/Utils/VkUtils.hpp                                Source/Platform/Vulkan/Utils/VkUtils.cpp
     Source/Platform/Vulkan/Renderer/VkRendererBackend.hpp                   Source/Platform/Vulkan/Renderer/VkRendererBackend.cpp
+    Source/Platform/Vulkan/Renderer/VkDeviceWrapper.hpp                     Source/Platform/Vulkan/Renderer/VkDeviceWrapper.cpp
 
     Source/Platform/OpenGL/ImGui/OGLImGuiImpl.hpp                           Source/Platform/OpenGL/ImGui/OGLImGuiImpl.cpp
     Source/Platform/OpenGL/Renderer/OGLRendererBackend.hpp                  Source/Platform/OpenGL/Renderer/OGLRendererBackend.cpp
@@ -163,7 +164,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nativefiledialog)
 
-find_package(Vulkan REQUIRED FATAL_ERROR)
+find_package(Vulkan REQUIRED)
 
 # add_subdirectory(tests)
 

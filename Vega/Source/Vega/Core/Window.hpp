@@ -16,7 +16,7 @@ namespace LM
         std::string Title = "Vega";
         uint32_t Width = 1280u;
         uint32_t Height = 720u;
-        RendererBackend::API RendererAPI;
+        RendererBackend::API RendererAPI = RendererBackend::API::kNone;
     };
 
     class Window

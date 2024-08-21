@@ -55,7 +55,7 @@ namespace LM
         props.Name = "Unit World Editor";
         props.CommandLineArgs = _Args;
         props.WorkingDirectory = U8_RES(RES_FOLDER);
-        props.RendererAPI = RendererBackend::API::kOpenGL;
+        props.RendererAPI = RendererBackend::API::kVulkan;
 
         if (rendererAPIOpenGL)
         {

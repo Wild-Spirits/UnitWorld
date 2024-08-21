@@ -98,11 +98,18 @@ namespace LM
         if (ImGui::Begin("Test"))
         {
             ImGui::Text("Hello, world!");
+            ImGui::Text(U8("彼女(かのじょ) は"));
+
             if (ImGui::Button(ICON_FA_FILE_WORD ICON_FA_BRIDGE ICON_FA_LINUX "Button"))
             {
             }
+
+            static char testText[256] = "";
+            ImGui::InputText("TestText", testText, 256);
         }
         ImGui::End();
+
+        ImGui::ShowDemoWindow();
 
         ImGui::Render();
     }
@@ -176,6 +183,7 @@ namespace LM
                     std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAS);
                 io.Fonts->AddFontFromFileTTF(farPath.string().c_str(), fontSize, &config, icon_ranges_fa);
                 io.Fonts->AddFontFromFileTTF(fasPath.string().c_str(), fontSize, &config, icon_ranges_fa);
+                // io.Fonts->AddFontFromFileTTF(regFont.c_str(), fontSize, &config, );
 
                 static const ImWchar icon_ranges_fab[] = { ICON_MIN_FAB, ICON_MAX_FAB, 0 };
                 std::filesystem::path fabPath =

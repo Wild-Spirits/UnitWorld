@@ -1,6 +1,5 @@
 #include "VkRendererBackend.hpp"
 
-#include "Vega/Core/Assert.hpp"
 #include "Vega/Utils/Log.hpp"
 
 #include "Platform/Platform.hpp"
@@ -16,6 +15,22 @@
 
 namespace LM
 {
+
+    VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+                                                   VkDebugUtilsMessageTypeFlagsEXT message_types,
+                                                   const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
+                                                   void* _UserData)
+    {
+        switch (message_severity)
+        {
+            default:
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: LM_CORE_ERROR(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: LM_CORE_WARN(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: LM_CORE_INFO(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: LM_CORE_TRACE(callback_data->pMessage); break;
+        }
+        return VK_FALSE;
+    }
 
     bool VkRendererBackend::Init()
     {
@@ -67,7 +82,6 @@ namespace LM
 #endif
 
         VkResult instanceResult = vkCreateInstance(&instanceCreateInfo, nullptr, &m_VkInstance);
-
         if (!VkResultIsSuccess(instanceResult))
         {
             LM_CORE_CRITICAL("Vulkan instance creation failed with result: {}", VkResultString(instanceResult, true));
@@ -87,6 +101,64 @@ namespace LM
 #endif
 
         LM_CORE_TRACE("Vulkan instance created");
+
+#ifdef _DEBUG
+        LM_CORE_TRACE("Creating Vulkan debugger...");
+        VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .messageSeverity =
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT,
+            .pfnUserCallback = VkDebugCallback
+        };
+
+        PFN_vkCreateDebugUtilsMessengerEXT func =
+            (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_VkInstance, "vkCreateDebugUtilsMessengerEXT");
+        LM_CORE_ASSERT(func, "Failed to create debug messenger!");
+        VK_CHECK(func(m_VkInstance, &debugCreateInfo, m_VkAllocator, &m_VkDebugMessenger));
+        LM_CORE_TRACE("Vulkan debugger created.");
+
+        m_PfnSetDebugUtilsObjectNameEXT =
+            (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(m_VkInstance, "vkSetDebugUtilsObjectNameEXT");
+        if (!m_PfnSetDebugUtilsObjectNameEXT)
+        {
+            LM_CORE_WARN("Unable to load function pointer for vkSetDebugUtilsObjectNameEXT. "
+                         "Debug functions associated with this will not work.");
+        }
+        m_PfnSetDebugUtilsObjectTagEXT =
+            (PFN_vkSetDebugUtilsObjectTagEXT)vkGetInstanceProcAddr(m_VkInstance, "vkSetDebugUtilsObjectTagEXT");
+        if (!m_PfnSetDebugUtilsObjectTagEXT)
+        {
+            LM_CORE_WARN("Unable to load function pointer for vkSetDebugUtilsObjectTagEXT. "
+                         "Debug functions associated with this will not work.");
+        }
+        m_PfnCmdBeginDebugUtilsLabelEXT =
+            (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_VkInstance, "vkCmdBeginDebugUtilsLabelEXT");
+        if (!m_PfnCmdBeginDebugUtilsLabelEXT)
+        {
+            LM_CORE_WARN("Unable to load function pointer for vkCmdBeginDebugUtilsLabelEXT. "
+                         "Debug functions associated with this will not work.");
+        }
+
+        m_PfnCmdEndDebugUtilsLabelEXT =
+            (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_VkInstance, "vkCmdEndDebugUtilsLabelEXT");
+        if (!m_PfnCmdEndDebugUtilsLabelEXT)
+        {
+            LM_CORE_WARN("Unable to load function pointer for vkCmdEndDebugUtilsLabelEXT. "
+                         "Debug functions associated with this will not work.");
+        }
+#endif
+
+        if (!m_VkDeviceWrapper.Init(m_VkInstance))
+        {
+            LM_CORE_CRITICAL("Failed to initialize VkDeviceWrapper");
+            return false;
+        }
+
         return true;
     }
 
@@ -99,9 +171,9 @@ namespace LM
     void VkRendererBackend::VerifyRequiredExtensions(const std::vector<const char*>& _RequiredExtensions)
     {
         uint32_t availableExtensionCount = 0;
-        vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, nullptr);
+        VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, nullptr));
         std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, availableExtensions.data());
+        VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, availableExtensions.data()));
 
         for (const char* requiredExtension : _RequiredExtensions)
         {
