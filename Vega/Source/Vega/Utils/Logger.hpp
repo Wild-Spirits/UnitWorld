@@ -7,7 +7,7 @@
 #include <mutex>
 #include <utility>
 
-namespace LM
+namespace Vega
 {
 
     class Logger
@@ -133,4 +133,4 @@ namespace LM
         static inline constexpr std::string_view s_FormatBase = "[{:<5}]: ";
     };
 
-}    // namespace LM
+}    // namespace Vega

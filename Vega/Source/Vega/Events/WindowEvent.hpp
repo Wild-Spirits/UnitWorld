@@ -2,7 +2,7 @@
 
 #include "Event.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class WindowResizeEvent : public Event
@@ -48,4 +48,4 @@ namespace LM
         float m_Scale;
     };
 
-}    // namespace LM
+}    // namespace Vega

@@ -1,6 +1,6 @@
 #include "LayerStack.hpp"
 
-namespace LM
+namespace Vega
 {
 
     LayerStack::~LayerStack()
@@ -40,4 +40,4 @@ namespace LM
         }
     }
 
-}    // namespace LM
+}    // namespace Vega

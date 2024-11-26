@@ -4,7 +4,7 @@
 
 #include "glm/glm.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class RendererBackend
@@ -42,4 +42,4 @@ namespace LM
         static inline API s_API = API::kNone;
     };
 
-}    // namespace LM
+}    // namespace Vega

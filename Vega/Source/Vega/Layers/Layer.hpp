@@ -3,7 +3,7 @@
 #include "Vega/Core/Base.hpp"
 #include "Vega/Events/EventManager.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class Layer
@@ -24,4 +24,4 @@ namespace LM
         std::string m_DebugName;
     };
 
-}    // namespace LM
+}    // namespace Vega

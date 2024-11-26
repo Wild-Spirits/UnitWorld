@@ -4,7 +4,7 @@
 
 #include <functional>
 
-namespace LM
+namespace Vega
 {
 
     template <typename EventType>
@@ -50,4 +50,4 @@ namespace LM
         const std::string m_HandlerType;
         bool m_DestroyOnSuccess { false };
     };
-}    // namespace LM
+}    // namespace Vega

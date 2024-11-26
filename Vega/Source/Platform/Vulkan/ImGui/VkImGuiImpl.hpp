@@ -2,7 +2,7 @@
 
 #include "Vega/ImGui/ImGuiImpl.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class VkImGuiImpl : public ImGuiImpl
@@ -15,4 +15,4 @@ namespace LM
         virtual void RecreateFontTexture() override;
     };
 
-}    // namespace LM
+}    // namespace Vega

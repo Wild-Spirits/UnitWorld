@@ -4,7 +4,7 @@
 
 struct GLFWwindow;
 
-namespace LM
+namespace Vega
 {
 
     class GLFWWindow : public Window
@@ -40,4 +40,4 @@ namespace LM
         WindowData m_Data;
     };
 
-}    // namespace LM
+}    // namespace Vega

@@ -5,7 +5,7 @@
 #include "Platform/OpenGL/Renderer/OGLRendererBackend.hpp"
 #include "Platform/Vulkan/Renderer/VkRendererBackend.hpp"
 
-namespace LM
+namespace Vega
 {
 
     Ref<RendererBackend> RendererBackend::Create(API _RendererAPI)
@@ -19,8 +19,8 @@ namespace LM
             case API::kOpenGL: return CreateRef<OGLRendererBackend>();
         }
 
-        LM_CORE_ASSERT(false, "Unknown RendererAPI!")
+        VEGA_CORE_ASSERT(false, "Unknown RendererAPI!")
         return nullptr;
     }
 
-}    // namespace LM
+}    // namespace Vega

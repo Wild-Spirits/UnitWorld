@@ -1,4 +1,4 @@
-﻿#include "ImGuiLayer.hpp"
+#include "ImGuiLayer.hpp"
 
 #include <fstream>
 
@@ -15,7 +15,7 @@
 
 #define USE_CUSTOM_FONT true
 
-namespace LM
+namespace Vega
 {
 
     const std::string regFont = "Assets/Fonts/Roboto/Roboto-Regular.ttf";
@@ -98,7 +98,7 @@ namespace LM
         if (ImGui::Begin("Test"))
         {
             ImGui::Text("Hello, world!");
-            ImGui::Text(U8("彼女(かのじょ) は"));
+            ImGui::Text("Привет Мир!");
 
             if (ImGui::Button(ICON_FA_FILE_WORD ICON_FA_BRIDGE ICON_FA_LINUX "Button"))
             {
@@ -200,7 +200,7 @@ namespace LM
                 m_ImGuiImpl->RecreateFontTexture();
             }
 
-            LM_CORE_TRACE("ImGui font size: {}", m_FontSize);
+            VEGA_CORE_TRACE("ImGui font size: {}", m_FontSize);
 
             m_ChangeSize = false;
         }
@@ -210,4 +210,4 @@ namespace LM
 
     uint32_t ImGuiLayer::GetActiveWidgetID() const { return GImGui->ActiveId; }
 
-}    // namespace LM
+}    // namespace Vega

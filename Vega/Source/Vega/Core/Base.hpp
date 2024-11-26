@@ -4,28 +4,28 @@
 
 #ifdef _DEBUG
     #if defined(WIN32)
-        #define LM_DEBUGBREAK() __debugbreak()
+        #define VEGA_DEBUGBREAK() __debugbreak()
     #elif defined(LINUX)
         #include <signal.h>
-        #define LM_DEBUGBREAK() raise(SIGTRAP)
+        #define VEGA_DEBUGBREAK() raise(SIGTRAP)
     #else
         #error "PLATFORM DOESN'T SUPPORT DEBUGBREAK!"
     #endif
 
-    #define LM_ENABLE_ASSERTS
+    #define VEGA_ENABLE_ASSERTS
 #else
-    #define LM_DEBUGBREAK()
+    #define VEGA_DEBUGBREAK()
 #endif
 
-#define LM_EXPAND_MACRO(x)    x
-#define LM_STRINGIFY_MACRO(x) #x
+#define VEGA_EXPAND_MACRO(x)    x
+#define VEGA_STRINGIFY_MACRO(x) #x
 
-#define BIT(x)                (1 << x)
+#define BIT(x)                  (1 << x)
 
-#define LM_BIND_EVENT_FN(fn)                                                                                           \
+#define VEGA_BIND_EVENT_FN(fn)                                                                                         \
     [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
 
-namespace LM
+namespace Vega
 {
 
     template <typename T>
@@ -50,4 +50,4 @@ namespace LM
         return std::static_pointer_cast<T>(_From);
     }
 
-}    // namespace LM
+}    // namespace Vega

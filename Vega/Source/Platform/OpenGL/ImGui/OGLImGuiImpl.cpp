@@ -8,7 +8,7 @@
 // TODO: Remove GLFW dependency
 #include <GLFW/glfw3.h>
 
-namespace LM
+namespace Vega
 {
 
     void OGLImGuiImpl::Init()
@@ -58,4 +58,4 @@ namespace LM
         ImGui_ImplOpenGL3_CreateFontsTexture();
     }
 
-}    // namespace LM
+}    // namespace Vega

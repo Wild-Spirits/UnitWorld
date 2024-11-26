@@ -9,7 +9,7 @@
 #include <functional>
 #include <string>
 
-namespace LM
+namespace Vega
 {
     struct WindowProps
     {
@@ -37,4 +37,4 @@ namespace LM
         static Ref<Window> Create(const WindowProps& _Props = WindowProps());
     };
 
-}    // namespace LM
+}    // namespace Vega

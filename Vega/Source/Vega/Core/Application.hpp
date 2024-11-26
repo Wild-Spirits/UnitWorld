@@ -13,7 +13,7 @@
 
 int main(int argc, char** argv);
 
-namespace LM
+namespace Vega
 {
 
     struct ApplicationCommandLineArgs
@@ -23,14 +23,14 @@ namespace LM
 
         const char* operator[](int index) const
         {
-            LM_CORE_ASSERT(index < Count);
+            VEGA_CORE_ASSERT(index < Count);
             return Args[index];
         }
     };
 
     struct ApplicationProps
     {
-        std::string Name = "LM Application";
+        std::string Name = "Vega Application";
         std::string WorkingDirectory;
         RendererBackend::API RendererAPI = RendererBackend::API::kVulkan;
         ApplicationCommandLineArgs CommandLineArgs;
@@ -84,4 +84,4 @@ namespace LM
     // To be defined in CLIENT
     Application* CreateApplication(ApplicationCommandLineArgs args);
 
-}    // namespace LM
+}    // namespace Vega

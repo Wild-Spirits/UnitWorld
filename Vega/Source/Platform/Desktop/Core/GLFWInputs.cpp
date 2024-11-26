@@ -3,7 +3,7 @@
 #include "Vega/Core/Application.hpp"
 #include <GLFW/glfw3.h>
 
-namespace LM
+namespace Vega
 {
 
     bool Input::IsKeyPressed(const KeyCode key)
@@ -33,4 +33,4 @@ namespace LM
 
     float Input::GetMouseY() { return GetMousePosition().y; }
 
-}    // namespace LM
+}    // namespace Vega

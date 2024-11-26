@@ -1,6 +1,8 @@
 #include "VkUtils.hpp"
 
-namespace LM
+#include "Platform/Vulkan/Renderer/VkBase.hpp"
+
+namespace Vega
 {
 
     bool VkResultIsSuccess(VkResult _Result)
@@ -145,7 +147,7 @@ namespace LM
                 return !_GetExtended
                          ? "VK_ERROR_FRAGMENTED_POOL"
                          : "VK_ERROR_FRAGMENTED_POOL A pool allocation has failed due to fragmentation of the "
-                           "pool’s memory. This must only be returned if no attempt to allocate host or device "
+                           "poolï¿½s memory. This must only be returned if no attempt to allocate host or device "
                            "memory was made to accommodate the new allocation. This should be returned in "
                            "preference to VK_ERROR_OUT_OF_POOL_MEMORY, but only if the implementation is "
                            "certain that the pool allocation failure was due to fragmentation.";
@@ -207,7 +209,7 @@ namespace LM
                          : "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT An operation on a swapchain created "
                            "with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as it did not have "
                            "exclusive full-screen access. This may occur due to implementation-dependent "
-                           "reasons, outside of the application’s control.";
+                           "reasons, outside of the applicationï¿½s control.";
             case VK_ERROR_UNKNOWN:
                 return !_GetExtended ? "VK_ERROR_UNKNOWN"
                                      : "VK_ERROR_UNKNOWN An unknown error has occurred; either the application has "
@@ -219,4 +221,21 @@ namespace LM
         }
     }
 
-}    // namespace LM
+#if defined(_DEBUG)
+
+    void VkSetDebugObjectName(PFN_vkSetDebugUtilsObjectNameEXT _PfnSetDebugUtilsObjectNameEXT, VkDevice _LogicalDevice,
+                              VkObjectType _ObjectType, void* _ObjectHandle, const char* _ObjectName)
+    {
+        const VkDebugUtilsObjectNameInfoEXT nameInfo = {
+            VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, 0, _ObjectType, (uint64_t)_ObjectHandle, _ObjectName,
+        };
+
+        if (_PfnSetDebugUtilsObjectNameEXT)
+        {
+            VK_CHECK(_PfnSetDebugUtilsObjectNameEXT(_LogicalDevice, &nameInfo));
+        }
+    }
+
+#endif
+
+}    // namespace Vega

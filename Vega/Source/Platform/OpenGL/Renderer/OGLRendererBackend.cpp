@@ -4,16 +4,16 @@
 
 #include <GL/glew.h>
 
-namespace LM
+namespace Vega
 {
 
     bool OGLRendererBackend::Init()
     {
-        LM_TRACE("Initialize OGLRendererBackend");
+        VEGA_TRACE("Initialize OGLRendererBackend");
 
         if (glewInit() != GLEW_OK)
         {
-            LM_CORE_CRITICAL("Could not initialise GLEW!");
+            VEGA_CORE_CRITICAL("Could not initialise GLEW!");
             return false;
         }
 
@@ -21,9 +21,9 @@ namespace LM
         // glEnable(GL_ALPHA_TEST);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        LM_CORE_TRACE("OpenGL version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+        VEGA_CORE_TRACE("OpenGL version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
-        LM_CORE_TRACE("OpenGL vendor: {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+        VEGA_CORE_TRACE("OpenGL vendor: {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
 
         return true;
     }
@@ -38,4 +38,4 @@ namespace LM
 
     void OGLRendererBackend::EndFrame() { }
 
-}    // namespace LM
+}    // namespace Vega

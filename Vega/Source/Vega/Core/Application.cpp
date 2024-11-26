@@ -7,14 +7,14 @@
 
 #include <filesystem>
 
-namespace LM
+namespace Vega
 {
 
     Application* Application::s_Instance = nullptr;
 
     Application::Application(const ApplicationProps& _Props) : m_Props(_Props)
     {
-        LM_CORE_ASSERT(!s_Instance, "Application already exists!");
+        VEGA_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
 
         Log::Init();
@@ -37,8 +37,8 @@ namespace LM
         m_RendererBackend = RendererBackend::Create(_Props.RendererAPI);
         m_RendererBackend->Init();
 
-        m_EventManager->Subscribe(EventHandler<WindowResizeEvent>(LM_BIND_EVENT_FN(OnWindowResize)));
-        m_EventManager->Subscribe(EventHandler<WindowCloseEvent>(LM_BIND_EVENT_FN(OnWindowClose)));
+        m_EventManager->Subscribe(EventHandler<WindowResizeEvent>(VEGA_BIND_EVENT_FN(OnWindowResize)));
+        m_EventManager->Subscribe(EventHandler<WindowCloseEvent>(VEGA_BIND_EVENT_FN(OnWindowClose)));
     }
 
     Application::~Application()
@@ -113,4 +113,4 @@ namespace LM
         return false;
     }
 
-}    // namespace LM
+}    // namespace Vega

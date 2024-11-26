@@ -2,7 +2,7 @@
 
 #include "VkBase.hpp"
 
-namespace LM
+namespace Vega
 {
 
     struct VkSwapchainSupportInfo
@@ -16,17 +16,25 @@ namespace LM
 
     struct VkPhysicalDeviceQueueFamilyInfo
     {
-        int32_t GraphicsFamilyIndex;
-        int32_t PresentFamilyIndex;
-        int32_t ComputeFamilyIndex;
-        int32_t TransferFamilyIndex;
+        int32_t GraphicsQueueIndex;
+        int32_t PresentQueueIndex;
+        int32_t ComputeQueueIndex;
+        int32_t TransferQueueIndex;
     };
 
     class VkDeviceWrapper
     {
     public:
-        bool Init(VkInstance _VkInstance);
+        bool Init(VkContext& _Context);
         void Shutdown();
+
+        VkPhysicalDevice GetPhysicalDevice() const { return m_PhysicalDevice; }
+        VkDevice GetLogicalDevice() const { return m_LogicalDevice; }
+        const VkPhysicalDeviceQueueFamilyInfo& GetPhysicalDeviceQueueFamilyInfo() const
+        {
+            return m_PhysicalDeviceQueueFamilyInfo;
+        }
+        VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
 
     protected:
         bool SelectPhysicalDevice(VkInstance _VkInstance);
@@ -59,4 +67,4 @@ namespace LM
         uint32_t m_SupportFlags = 0;
     };
 
-}    // namespace LM
+}    // namespace Vega

@@ -1,6 +1,6 @@
 #include "Log.hpp"
 
-namespace LM
+namespace Vega
 {
 
     void Log::Init()
@@ -9,4 +9,4 @@ namespace LM
         s_ClientLogger = CreateRef<Logger>();
     }
 
-}    // namespace LM
+}    // namespace Vega

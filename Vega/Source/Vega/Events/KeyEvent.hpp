@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Vega/Core/KeyCodes.hpp"
 #include "Event.hpp"
+#include "Vega/Core/KeyCodes.hpp"
 
-namespace LM
+
+namespace Vega
 {
 
     class KeyEvent : public Event
@@ -56,4 +57,4 @@ namespace LM
         EVENT_CLASS_TYPE(KeyTyped)
     };
 
-}    // namespace LM
+}    // namespace Vega

@@ -10,7 +10,7 @@
 
 struct ImFont;
 
-namespace LM
+namespace Vega
 {
 
     class ImGuiLayer : public Layer
@@ -46,4 +46,4 @@ namespace LM
         std::unordered_map<int, ImFont*> m_Fonts;
     };
 
-}    // namespace LM
+}    // namespace Vega

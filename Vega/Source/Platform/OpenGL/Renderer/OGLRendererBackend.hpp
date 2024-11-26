@@ -2,7 +2,7 @@
 
 #include "Vega/Renderer/RendererBackend.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class OGLRendererBackend : public RendererBackend
@@ -17,4 +17,4 @@ namespace LM
         virtual void EndFrame() override;
     };
 
-}    // namespace LM
+}    // namespace Vega

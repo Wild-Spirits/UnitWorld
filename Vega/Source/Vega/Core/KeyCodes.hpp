@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace LM
+namespace Vega
 {
 
     using KeyCode = uint16_t;
@@ -147,4 +147,4 @@ namespace LM
 
     }    // namespace Key
 
-}    // namespace LM
+}    // namespace Vega

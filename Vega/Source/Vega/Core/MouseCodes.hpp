@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace LM
+namespace Vega
 {
 
     using MouseCode = uint16_t;
@@ -30,4 +30,4 @@ namespace LM
 
     }    // namespace Mouse
 
-}    // namespace LM
+}    // namespace Vega

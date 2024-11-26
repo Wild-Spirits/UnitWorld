@@ -2,7 +2,7 @@
 
 #include "EventHandler.hpp"
 
-namespace LM
+namespace Vega
 {
 
     using EventId = uint64_t;
@@ -47,4 +47,4 @@ namespace LM
             m_SubscribersByEventId;
     };
 
-}    // namespace LM
+}    // namespace Vega

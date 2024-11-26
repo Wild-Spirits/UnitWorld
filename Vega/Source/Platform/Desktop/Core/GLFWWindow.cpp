@@ -7,7 +7,7 @@
 
 #include <GLFW/glfw3.h>
 
-namespace LM
+namespace Vega
 {
 
     bool glfw_get_window_monitor(GLFWmonitor** monitor, GLFWwindow* window);
@@ -27,7 +27,7 @@ namespace LM
     {
         if (!glfwInit())
         {
-            LM_CORE_CRITICAL("Failed to initialize GLFW!");
+            VEGA_CORE_CRITICAL("Failed to initialize GLFW!");
             return false;
         }
 
@@ -43,7 +43,7 @@ namespace LM
 
         if (!m_Window)
         {
-            LM_CORE_CRITICAL("Failed to create window!");
+            VEGA_CORE_CRITICAL("Failed to create window!");
             return false;
         }
 
@@ -53,8 +53,8 @@ namespace LM
             nowMonitor = glfwGetPrimaryMonitor();
         }
         glfwGetMonitorContentScale(nowMonitor, NULL, &m_Data.MonitorScale);
-        LM_CORE_TRACE("Current monitor: {}", static_cast<void*>(nowMonitor));
-        LM_CORE_TRACE("Current monitor scale: {}", m_Data.MonitorScale);
+        VEGA_CORE_TRACE("Current monitor: {}", static_cast<void*>(nowMonitor));
+        VEGA_CORE_TRACE("Current monitor scale: {}", m_Data.MonitorScale);
 
         glfwMakeContextCurrent(m_Window);
         glfwSetWindowUserPointer(m_Window, &m_Data);
@@ -319,4 +319,4 @@ namespace LM
         return success;
     }
 
-}    // namespace LM
+}    // namespace Vega

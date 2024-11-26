@@ -2,7 +2,7 @@
 
 #include "Vega/Core/Base.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class ImGuiImpl
@@ -20,4 +20,4 @@ namespace LM
     protected:
     };
 
-}    // namespace LM
+}    // namespace Vega

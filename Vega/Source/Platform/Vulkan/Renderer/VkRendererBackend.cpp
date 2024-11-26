@@ -4,7 +4,7 @@
 
 #include "Platform/Platform.hpp"
 
-#ifdef LM_PLATFORM_DESKTOP
+#ifdef VEGA_PLATFORM_DESKTOP
     #include "GLFW/glfw3.h"
     #include "Platform/Desktop/Core/GLFWWindow.hpp"
     #include "Vega/Core/Application.hpp"
@@ -13,7 +13,7 @@
 #include "Platform/Vulkan/Platform/VkPlatform.hpp"
 #include "Platform/Vulkan/Utils/VkUtils.hpp"
 
-namespace LM
+namespace Vega
 {
 
     VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
@@ -24,27 +24,27 @@ namespace LM
         switch (message_severity)
         {
             default:
-            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: LM_CORE_ERROR(callback_data->pMessage); break;
-            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: LM_CORE_WARN(callback_data->pMessage); break;
-            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: LM_CORE_INFO(callback_data->pMessage); break;
-            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: LM_CORE_TRACE(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: VEGA_CORE_ERROR(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: VEGA_CORE_WARN(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: VEGA_CORE_INFO(callback_data->pMessage); break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: VEGA_CORE_TRACE(callback_data->pMessage); break;
         }
         return VK_FALSE;
     }
 
     bool VkRendererBackend::Init()
     {
-        LM_CORE_TRACE("Initialize VkRendererBackend");
+        VEGA_CORE_TRACE("Initialize VkRendererBackend");
 
-        m_VkAllocator = nullptr;
+        m_VkContext.VkAllocator = nullptr;
 
         uint32_t vkApiVersion = 0;
         vkEnumerateInstanceVersion(&vkApiVersion);
 
-        uint32_t vkApiVersionMajor = VK_VERSION_MAJOR(vkApiVersion);
-        uint32_t vkApiVersionMinor = VK_VERSION_MINOR(vkApiVersion);
-        uint32_t vkApiVersionPatch = VK_VERSION_PATCH(vkApiVersion);
-        LM_CORE_TRACE("Vulkan API Version: {}.{}.{}", vkApiVersionMajor, vkApiVersionMinor, vkApiVersionPatch);
+        uint32_t vkApiVersionMajor = VK_API_VERSION_MAJOR(vkApiVersion);
+        uint32_t vkApiVersionMinor = VK_API_VERSION_MINOR(vkApiVersion);
+        uint32_t vkApiVersionPatch = VK_API_VERSION_PATCH(vkApiVersion);
+        VEGA_CORE_TRACE("Vulkan API Version: {}.{}.{}", vkApiVersionMajor, vkApiVersionMinor, vkApiVersionPatch);
 
         VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -77,33 +77,33 @@ namespace LM
             .ppEnabledExtensionNames = instanceExtensions.data(),
         };
 
-#ifdef LM_PLATFORM_APPLE
+#ifdef VEGA_PLATFORM_APPLE
         instanceCreateInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
 
-        VkResult instanceResult = vkCreateInstance(&instanceCreateInfo, nullptr, &m_VkInstance);
+        VkResult instanceResult = vkCreateInstance(&instanceCreateInfo, nullptr, &m_VkContext.VkInstance);
         if (!VkResultIsSuccess(instanceResult))
         {
-            LM_CORE_CRITICAL("Vulkan instance creation failed with result: {}", VkResultString(instanceResult, true));
+            VEGA_CORE_CRITICAL("Vulkan instance creation failed with result: {}", VkResultString(instanceResult, true));
             return false;
         }
 
-#ifdef LM_PLATFORM_DESKTOP
+#ifdef VEGA_PLATFORM_DESKTOP
         VkResult surfaceResult = glfwCreateWindowSurface(
-            m_VkInstance, static_cast<GLFWwindow*>(Application::Get().GetWindow()->GetNativeWindow()), m_VkAllocator,
-            &m_VkSurface);
+            m_VkContext.VkInstance, static_cast<GLFWwindow*>(Application::Get().GetWindow()->GetNativeWindow()),
+            m_VkContext.VkAllocator, &m_VkSurface);
 
         if (surfaceResult != VK_SUCCESS)
         {
-            LM_CORE_CRITICAL("Vulkan surface creation failed.");
+            VEGA_CORE_CRITICAL("Vulkan surface creation failed.");
             return false;
         }
 #endif
 
-        LM_CORE_TRACE("Vulkan instance created");
+        VEGA_CORE_TRACE("Vulkan instance created");
 
 #ifdef _DEBUG
-        LM_CORE_TRACE("Creating Vulkan debugger...");
+        VEGA_CORE_TRACE("Creating Vulkan debugger...");
         VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
             .messageSeverity =
@@ -116,48 +116,51 @@ namespace LM
             .pfnUserCallback = VkDebugCallback
         };
 
-        PFN_vkCreateDebugUtilsMessengerEXT func =
-            (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_VkInstance, "vkCreateDebugUtilsMessengerEXT");
-        LM_CORE_ASSERT(func, "Failed to create debug messenger!");
-        VK_CHECK(func(m_VkInstance, &debugCreateInfo, m_VkAllocator, &m_VkDebugMessenger));
-        LM_CORE_TRACE("Vulkan debugger created.");
+        PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+            m_VkContext.VkInstance, "vkCreateDebugUtilsMessengerEXT");
+        VEGA_CORE_ASSERT(func, "Failed to create debug messenger!");
+        VK_CHECK(
+            func(m_VkContext.VkInstance, &debugCreateInfo, m_VkContext.VkAllocator, &m_VkContext.VkDebugMessenger));
+        VEGA_CORE_TRACE("Vulkan debugger created.");
 
-        m_PfnSetDebugUtilsObjectNameEXT =
-            (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(m_VkInstance, "vkSetDebugUtilsObjectNameEXT");
-        if (!m_PfnSetDebugUtilsObjectNameEXT)
+        m_VkContext.PfnSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
+            m_VkContext.VkInstance, "vkSetDebugUtilsObjectNameEXT");
+        if (!m_VkContext.PfnSetDebugUtilsObjectNameEXT)
         {
-            LM_CORE_WARN("Unable to load function pointer for vkSetDebugUtilsObjectNameEXT. "
-                         "Debug functions associated with this will not work.");
+            VEGA_CORE_WARN("Unable to load function pointer for vkSetDebugUtilsObjectNameEXT. "
+                           "Debug functions associated with this will not work.");
         }
-        m_PfnSetDebugUtilsObjectTagEXT =
-            (PFN_vkSetDebugUtilsObjectTagEXT)vkGetInstanceProcAddr(m_VkInstance, "vkSetDebugUtilsObjectTagEXT");
-        if (!m_PfnSetDebugUtilsObjectTagEXT)
+        m_VkContext.PfnSetDebugUtilsObjectTagEXT = (PFN_vkSetDebugUtilsObjectTagEXT)vkGetInstanceProcAddr(
+            m_VkContext.VkInstance, "vkSetDebugUtilsObjectTagEXT");
+        if (!m_VkContext.PfnSetDebugUtilsObjectTagEXT)
         {
-            LM_CORE_WARN("Unable to load function pointer for vkSetDebugUtilsObjectTagEXT. "
-                         "Debug functions associated with this will not work.");
+            VEGA_CORE_WARN("Unable to load function pointer for vkSetDebugUtilsObjectTagEXT. "
+                           "Debug functions associated with this will not work.");
         }
-        m_PfnCmdBeginDebugUtilsLabelEXT =
-            (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_VkInstance, "vkCmdBeginDebugUtilsLabelEXT");
-        if (!m_PfnCmdBeginDebugUtilsLabelEXT)
+        m_VkContext.PfnCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(
+            m_VkContext.VkInstance, "vkCmdBeginDebugUtilsLabelEXT");
+        if (!m_VkContext.PfnCmdBeginDebugUtilsLabelEXT)
         {
-            LM_CORE_WARN("Unable to load function pointer for vkCmdBeginDebugUtilsLabelEXT. "
-                         "Debug functions associated with this will not work.");
+            VEGA_CORE_WARN("Unable to load function pointer for vkCmdBeginDebugUtilsLabelEXT. "
+                           "Debug functions associated with this will not work.");
         }
 
-        m_PfnCmdEndDebugUtilsLabelEXT =
-            (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_VkInstance, "vkCmdEndDebugUtilsLabelEXT");
-        if (!m_PfnCmdEndDebugUtilsLabelEXT)
+        m_VkContext.PfnCmdEndDebugUtilsLabelEXT =
+            (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_VkContext.VkInstance, "vkCmdEndDebugUtilsLabelEXT");
+        if (!m_VkContext.PfnCmdEndDebugUtilsLabelEXT)
         {
-            LM_CORE_WARN("Unable to load function pointer for vkCmdEndDebugUtilsLabelEXT. "
-                         "Debug functions associated with this will not work.");
+            VEGA_CORE_WARN("Unable to load function pointer for vkCmdEndDebugUtilsLabelEXT. "
+                           "Debug functions associated with this will not work.");
         }
 #endif
 
-        if (!m_VkDeviceWrapper.Init(m_VkInstance))
+        if (!m_VkDeviceWrapper.Init(m_VkContext))
         {
-            LM_CORE_CRITICAL("Failed to initialize VkDeviceWrapper");
+            VEGA_CORE_CRITICAL("Failed to initialize VkDeviceWrapper");
             return false;
         }
+
+        // TODO: Add code from "on window create"
 
         return true;
     }
@@ -183,15 +186,15 @@ namespace LM
                 if (std::strcmp(requiredExtension, availableExtension.extensionName) == 0)
                 {
                     found = true;
-                    LM_CORE_TRACE("Found required extension: {}", requiredExtension);
+                    VEGA_CORE_TRACE("Found required extension: {}", requiredExtension);
                     break;
                 }
             }
 
             if (!found)
             {
-                LM_CORE_ERROR("Required extension {} not found", requiredExtension);
-                LM_CORE_ASSERT(false, "VerifyRequiredExtensions failed");
+                VEGA_CORE_ERROR("Required extension {} not found", requiredExtension);
+                VEGA_CORE_ASSERT(false, "VerifyRequiredExtensions failed");
             }
         }
     }
@@ -211,17 +214,17 @@ namespace LM
                 if (std::strcmp(requiredLayer, availableLayer.layerName) == 0)
                 {
                     found = true;
-                    LM_CORE_TRACE("Found required validation layer: {}", requiredLayer);
+                    VEGA_CORE_TRACE("Found required validation layer: {}", requiredLayer);
                     break;
                 }
             }
 
             if (!found)
             {
-                LM_CORE_ERROR("Required validation layer {} not found", requiredLayer);
-                LM_CORE_ASSERT(false, "VerifyValidationLayers failed");
+                VEGA_CORE_ERROR("Required validation layer {} not found", requiredLayer);
+                VEGA_CORE_ASSERT(false, "VerifyValidationLayers failed");
             }
         }
     }
 
-}    // namespace LM
+}    // namespace Vega

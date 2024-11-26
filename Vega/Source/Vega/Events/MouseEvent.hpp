@@ -3,7 +3,7 @@
 #include "Event.hpp"
 #include "Vega/Core/MouseCodes.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class MouseMovedEvent : public Event
@@ -78,4 +78,4 @@ namespace LM
         EVENT_CLASS_TYPE(MouseButtonReleased)
     };
 
-}    // namespace LM
+}    // namespace Vega

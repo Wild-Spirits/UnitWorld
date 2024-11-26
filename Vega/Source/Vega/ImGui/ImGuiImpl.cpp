@@ -7,7 +7,7 @@
 #include "Platform/OpenGL/ImGui/OGLImGuiImpl.hpp"
 #include "Platform/Vulkan/ImGui/VkImGuiImpl.hpp"
 
-namespace LM
+namespace Vega
 {
 
     Scope<ImGuiImpl> ImGuiImpl::Create()
@@ -19,8 +19,8 @@ namespace LM
             case RendererBackend::API::kOpenGL: return CreateScope<OGLImGuiImpl>();
         }
 
-        LM_CORE_ASSERT(false, "Unknown RendererAPI!")
+        VEGA_CORE_ASSERT(false, "Unknown RendererAPI!")
         return nullptr;
     }
 
-}    // namespace LM
+}    // namespace Vega

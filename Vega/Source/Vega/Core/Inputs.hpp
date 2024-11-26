@@ -5,7 +5,7 @@
 
 #include <glm/glm.hpp>
 
-namespace LM
+namespace Vega
 {
 
     class Input
@@ -19,4 +19,4 @@ namespace LM
         static float GetMouseY();
     };
 
-}    // namespace LM
+}    // namespace Vega

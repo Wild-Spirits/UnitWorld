@@ -5,7 +5,7 @@
 
 #include "Vega/Core/Base.hpp"
 
-namespace LM
+namespace Vega
 {
     enum class EventType
     {
@@ -63,4 +63,4 @@ namespace LM
 
     inline std::ostream& operator<<(std::ostream& _Out, const Event& _Event) { return _Out << _Event.ToString(); }
 
-}    // namespace LM
+}    // namespace Vega

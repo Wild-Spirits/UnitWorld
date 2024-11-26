@@ -7,7 +7,7 @@
 #include <Vega/Layers/ImGuiLayer.hpp>
 #include <Vega/Utils/utf8.hpp>
 
-namespace LM
+namespace Vega
 {
 
     class App : public Application
@@ -54,7 +54,7 @@ namespace LM
         ApplicationProps props;
         props.Name = "Unit World Editor";
         props.CommandLineArgs = _Args;
-        props.WorkingDirectory = U8_RES(RES_FOLDER);
+        props.WorkingDirectory = RES_FOLDER;    // TODO: check is it working with cyrillic symbols
         props.RendererAPI = RendererBackend::API::kVulkan;
 
         if (rendererAPIOpenGL)
@@ -73,4 +73,4 @@ namespace LM
         return new App(props);
     }
 
-}    // namespace LM
+}    // namespace Vega

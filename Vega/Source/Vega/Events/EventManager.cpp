@@ -2,7 +2,7 @@
 
 #include "Vega/Core/Assert.hpp"
 
-namespace LM
+namespace Vega
 {
 
     void EventManager::Subscribe(EventType _EventType, Scope<IEventHandlerWrapper>&& _Handler, EventId _EventId)
@@ -33,7 +33,7 @@ namespace LM
                 {
                     if (it->GetType() == _Handler->GetType())
                     {
-                        LM_CORE_ASSERT(false, "Attempting to double-register callback");
+                        VEGA_CORE_ASSERT(false, "Attempting to double-register callback");
                         return;
                     }
                 }
@@ -136,4 +136,4 @@ namespace LM
         }
     }
 
-}    // namespace LM
+}    // namespace Vega

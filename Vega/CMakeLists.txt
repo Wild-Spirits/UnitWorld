@@ -100,10 +100,13 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 
 add_compile_definitions(GLEW_STATIC _LIB IMGUI_DEFINE_MATH_OPERATORS RES_FOLDER="${CMAKE_SOURCE_DIR}/")
 
+find_package(OpenGL REQUIRED)
+find_package(Vulkan REQUIRED)
+
 add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
-target_link_libraries(${PROJECT_NAME} glm args glfw glew Vulkan::Vulkan stb ImGui nfd)
+target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} Vulkan::Vulkan glm args glfw glew stb imgui nfd)
 
 if(MSVC)
     target_link_libraries(${PROJECT_NAME} opengl32)
@@ -111,14 +114,16 @@ else()
     target_link_libraries(${PROJECT_NAME} GL)
 endif()
 
-option(GLFW_BUILD_DOCS "GLFW_BUILD_DOCS" OFF)
-
 include(FetchContent)
 
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG b35641f4a3c62aa86a0b3c983d163bc0fe36026d
+    GIT_TAG 3.4
 )
 FetchContent_MakeAvailable(glfw)
 
@@ -144,11 +149,38 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(args)
 
 FetchContent_Declare(
-    ImGui
-    GIT_REPOSITORY https://github.com/mihaillatyshov/imgui.git
-    GIT_TAG 9cffb2251c431da627411015d69e1267336d6c8a
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.5-docking
 )
-FetchContent_MakeAvailable(ImGui)
+FetchContent_GetProperties(imgui)
+if (NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
+    set(IMGUI_INCLUDE_DIR ${imgui_SOURCE_DIR}/)
+    set(IMGUI_SOURCES 
+        ${imgui_SOURCE_DIR}/imconfig.h
+        ${imgui_SOURCE_DIR}/imgui.cpp                   ${imgui_SOURCE_DIR}/imgui.h
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_internal.h
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/imstb_rectpack.h
+        ${imgui_SOURCE_DIR}/imstb_textedit.h
+        ${imgui_SOURCE_DIR}/imstb_truetype.h
+        ${imgui_SOURCE_DIR}/imgui_demo.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+
+        ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp   ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.h
+    )
+    add_library(imgui STATIC)
+    target_sources(imgui PRIVATE
+        ${IMGUI_SOURCES}
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.h ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+    )
+    target_include_directories(imgui PUBLIC ${IMGUI_INCLUDE_DIR})
+    target_link_libraries(imgui glfw Vulkan::Vulkan)
+endif ()
 
 FetchContent_Declare(
     stb
@@ -164,8 +196,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nativefiledialog)
 
-find_package(Vulkan REQUIRED)
-
 # add_subdirectory(tests)
 
 if(MSVC)
@@ -174,6 +204,6 @@ if(MSVC)
     set_target_properties(uninstall PROPERTIES FOLDER "${PROJECT_NAME}/deps")
     set_target_properties(update_mappings PROPERTIES FOLDER "${PROJECT_NAME}/deps")
     set_target_properties(glew PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-    set_target_properties(ImGui PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+    set_target_properties(imgui PROPERTIES FOLDER "${PROJECT_NAME}/deps")
     set_target_properties(nfd PROPERTIES FOLDER "${PROJECT_NAME}/deps")
 endif()

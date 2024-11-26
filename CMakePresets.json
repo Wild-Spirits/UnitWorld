@@ -10,7 +10,7 @@
             "name": "base",
             "hidden": true,
             "binaryDir": "${sourceDir}/build/${presetName}",
-            "installDir": "${sourceDir}/build/${presetName}",
+            "installDir": "${sourceDir}/build/${presetName}"
         },
         {
             "name": "windows-x64",

@@ -4,7 +4,7 @@
     #include <Windows.h>
 #endif
 
-namespace LM
+namespace Vega
 {
 
     void Logger::SetColor(ConsoleColorType _TXT, ConsoleColorType _BG)
@@ -19,4 +19,4 @@ namespace LM
 #endif
     }
 
-}    // namespace LM
+}    // namespace Vega

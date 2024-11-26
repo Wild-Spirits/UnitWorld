@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace LM
+namespace Vega
 {
 
     class VkRendererBackend : public RendererBackend
@@ -20,25 +20,22 @@ namespace LM
         virtual void BeginFrame() override;
         virtual void EndFrame() override;
 
+        inline const VkContext& GetVkContext() const { return m_VkContext; }
+        inline const VkDeviceWrapper& GetVkDeviceWrapper() const { return m_VkDeviceWrapper; }
+
     private:
         static void VerifyRequiredExtensions(const std::vector<const char*>& _RequiredExtensions);
 
         static void VerifyValidationLayers(const std::vector<const char*>& _RequiredValidationLayers);
 
     protected:
-        VkInstance m_VkInstance;
-        VkAllocationCallbacks* m_VkAllocator = nullptr;
         VkSurfaceKHR m_VkSurface;
 
-        VkDeviceWrapper m_VkDeviceWrapper;
+        VkContext m_VkContext = {};
 
-#if defined(_DEBUG)
-        VkDebugUtilsMessengerEXT m_VkDebugMessenger;
-        PFN_vkSetDebugUtilsObjectNameEXT m_PfnSetDebugUtilsObjectNameEXT;
-        PFN_vkSetDebugUtilsObjectTagEXT m_PfnSetDebugUtilsObjectTagEXT;
-        PFN_vkCmdBeginDebugUtilsLabelEXT m_PfnCmdBeginDebugUtilsLabelEXT;
-        PFN_vkCmdEndDebugUtilsLabelEXT m_PfnCmdEndDebugUtilsLabelEXT;
-#endif
+        std::vector<VkSampler> samplers;
+
+        VkDeviceWrapper m_VkDeviceWrapper;
     };
 
-}    // namespace LM
+}    // namespace Vega

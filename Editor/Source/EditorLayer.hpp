@@ -2,11 +2,11 @@
 
 #include "Vega/Layers/Layer.hpp"
 
-namespace LM
+namespace Vega
 {
 
     class EditorLayer : public Layer
     {
     };
 
-}    // namespace LM
+}    // namespace Vega

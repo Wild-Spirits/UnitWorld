@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace LM
+namespace Vega
 {
 
     class LayerStack
@@ -35,4 +35,4 @@ namespace LM
         unsigned int m_LayerInsertIndex = 0;
     };
 
-}    // namespace LM
+}    // namespace Vega
