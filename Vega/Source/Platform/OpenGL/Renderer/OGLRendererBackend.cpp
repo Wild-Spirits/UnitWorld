@@ -30,6 +30,12 @@ namespace Vega
 
     void OGLRendererBackend::Shutdown() { }
 
+    bool OGLRendererBackend::OnWindowCreate(/* Ref<Wiondow> _Window */)
+    {
+        //
+        return true;
+    }
+
     void OGLRendererBackend::BeginFrame()
     {
         glClearColor(m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, m_ClearColor.a);

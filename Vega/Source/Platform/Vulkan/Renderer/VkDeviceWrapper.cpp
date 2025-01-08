@@ -109,7 +109,7 @@ namespace Vega
             //     queueCreateInfos[i].queueCount = 2;
             // }
             queueCreateInfos[i].flags = 0;
-            queueCreateInfos[i].pNext = 0;
+            queueCreateInfos[i].pNext = nullptr;
             queueCreateInfos[i].pQueuePriorities = queuePriorities.data();
         }
 
@@ -154,27 +154,25 @@ namespace Vega
         }
 
         VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
-        {
+        {    // TODO: remove scope???
             deviceFeatures.features.samplerAnisotropy = m_PhysicalDeviceFeatures.samplerAnisotropy;
             deviceFeatures.features.fillModeNonSolid = m_PhysicalDeviceFeatures.fillModeNonSolid;
 
-            VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingExt = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES
-            };
-            dynamicRenderingExt.dynamicRendering = VK_TRUE;
-            deviceFeatures.pNext = &dynamicRenderingExt;
-
-            VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT
-            };
-            extendedDynamicState.extendedDynamicState = VK_TRUE;
-            dynamicRenderingExt.pNext = &extendedDynamicState;
-
             VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
+                .descriptorBindingPartiallyBound = VK_TRUE,    // TODO: Check if supported?
             };
-            descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;    // TODO: Check if supported?
-            extendedDynamicState.pNext = &descriptorIndexingFeatures;
+            VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStateFeatures = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+                .pNext = &descriptorIndexingFeatures,
+                .extendedDynamicState = VK_TRUE,
+            };
+            VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingExt = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
+                .pNext = &extendedDynamicStateFeatures,
+                .dynamicRendering = VK_TRUE,
+            };
+            deviceFeatures.pNext = &dynamicRenderingExt;
 
 #if defined(VK_USE_PLATFORM_MACOS_MVK)
             setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1", 1);
@@ -182,23 +180,25 @@ namespace Vega
 
             if (m_SupportFlags & VkDeviceSupportFlagBits::kLineSmoothRasterizationBit)
             {
-                VkPhysicalDeviceLineRasterizationFeaturesEXT lineRasterizationExt = {};
-                lineRasterizationExt.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT;
-                lineRasterizationExt.smoothLines = VK_TRUE;
+                VkPhysicalDeviceLineRasterizationFeaturesEXT lineRasterizationExt = {
+                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
+                    .smoothLines = VK_TRUE,
+                };
                 descriptorIndexingFeatures.pNext = &lineRasterizationExt;
             }
         }
 
-        VkDeviceCreateInfo deviceCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-        deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-        deviceCreateInfo.pEnabledFeatures = 0;    // &device_features;
-        deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(extensionNames.size());
-        deviceCreateInfo.ppEnabledExtensionNames = extensionNames.data();
-
-        deviceCreateInfo.enabledLayerCount = 0;
-        deviceCreateInfo.ppEnabledLayerNames = 0;
-        deviceCreateInfo.pNext = &deviceFeatures;
+        VkDeviceCreateInfo deviceCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext = &deviceFeatures,
+            .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+            .pQueueCreateInfos = queueCreateInfos.data(),
+            .enabledLayerCount = 0,
+            .ppEnabledLayerNames = nullptr,
+            .enabledExtensionCount = static_cast<uint32_t>(extensionNames.size()),
+            .ppEnabledExtensionNames = extensionNames.data(),
+            .pEnabledFeatures = nullptr,
+        };
 
         VK_CHECK(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, _Context.VkAllocator, &m_LogicalDevice));
 
@@ -262,9 +262,11 @@ namespace Vega
         vkGetDeviceQueue(m_LogicalDevice, m_PhysicalDeviceQueueFamilyInfo.TransferQueueIndex, 0, &m_TransferQueue);
         VEGA_CORE_INFO("Queues obtained.");
 
-        VkCommandPoolCreateInfo poolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-        poolCreateInfo.queueFamilyIndex = m_PhysicalDeviceQueueFamilyInfo.GraphicsQueueIndex;
-        poolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        VkCommandPoolCreateInfo poolCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .queueFamilyIndex = static_cast<uint32_t>(m_PhysicalDeviceQueueFamilyInfo.GraphicsQueueIndex),
+        };
         VK_CHECK(vkCreateCommandPool(m_LogicalDevice, &poolCreateInfo, _Context.VkAllocator, &m_GraphicsCommandPool));
         VEGA_CORE_INFO("Graphics command pool created.");
 
@@ -274,6 +276,19 @@ namespace Vega
     void VkDeviceWrapper::Shutdown()
     {
         // TODO: implement
+    }
+
+    VkSwapchainSupportInfo VkDeviceWrapper::GetSwapchainSupportInfo(VkSurfaceKHR _Surface) const
+    {
+        VkSwapchainSupportInfo swapchainSupportInfo = { 0 };
+
+        VkResult result =
+            vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice, _Surface, &swapchainSupportInfo.Capabilities);
+
+        if (!VkResultIsSuccess(result))
+        {
+            VEGA_CORE_CRITICAL("vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed with message: {}", (result, true));
+        }
     }
 
     bool VkDeviceWrapper::SelectPhysicalDevice(VkInstance _VkInstance)
@@ -286,13 +301,15 @@ namespace Vega
             return false;
         }
 
-        VkPhysicalDeviceRequirements requirements = { .Graphics = true,
-                                                      .Present = true,
-                                                      .Transfer = true,
-                                                      .SamplerAnisotropy = true,
-                                                      .DiscreteGpu = false,
-                                                      .PrioritizeDiscreteGpu = true,
-                                                      .DeviceExtensionNames = { VK_KHR_SWAPCHAIN_EXTENSION_NAME } };
+        VkPhysicalDeviceRequirements requirements = {
+            .Graphics = true,
+            .Present = true,
+            .Transfer = true,
+            .SamplerAnisotropy = true,
+            .DiscreteGpu = false,
+            .PrioritizeDiscreteGpu = true,
+            .DeviceExtensionNames = { VK_KHR_SWAPCHAIN_EXTENSION_NAME },
+        };
 
 #ifdef VEGA_PLATFORM_APPLE
         requirements.DiscreteGpu = false;
@@ -304,24 +321,30 @@ namespace Vega
         VK_CHECK(vkEnumeratePhysicalDevices(_VkInstance, &physicalDeviceCount, physicalDevices.data()));
         for (size_t i = 0; i < physicalDevices.size(); ++i)
         {
-            VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            VkPhysicalDeviceDriverProperties driverProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES };
-            properties2.pNext = &driverProperties;
+            VkPhysicalDeviceDriverProperties driverProperties = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES,
+            };
+            VkPhysicalDeviceProperties2 properties2 = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+                .pNext = &driverProperties,
+            };
             vkGetPhysicalDeviceProperties2(physicalDevices[i], &properties2);
             VkPhysicalDeviceProperties properties = properties2.properties;
 
             VkPhysicalDeviceFeatures features;
             vkGetPhysicalDeviceFeatures(physicalDevices[i], &features);
 
-            VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-            VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamicStateNext = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT
-            };
-            features2.pNext = &dynamicStateNext;
             VkPhysicalDeviceLineRasterizationFeaturesEXT smoothLineNext = {
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
             };
-            dynamicStateNext.pNext = &smoothLineNext;
+            VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamicStateNext = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+                .pNext = &smoothLineNext,
+            };
+            VkPhysicalDeviceFeatures2 features2 = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                .pNext = &dynamicStateNext,
+            };
             vkGetPhysicalDeviceFeatures2(physicalDevices[i], &features2);
 
             VkPhysicalDeviceMemoryProperties memory;
@@ -441,7 +464,10 @@ namespace Vega
         }
 
         VkPhysicalDeviceQueueFamilyInfo outQueueInfo = {
-            .GraphicsQueueIndex = -1, .PresentQueueIndex = -1, .ComputeQueueIndex = -1, .TransferQueueIndex = -1
+            .GraphicsQueueIndex = -1,
+            .PresentQueueIndex = -1,
+            .ComputeQueueIndex = -1,
+            .TransferQueueIndex = -1,
         };
 
         uint32_t queueFamilyCount = 0;

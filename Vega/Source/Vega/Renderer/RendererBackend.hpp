@@ -7,6 +7,16 @@
 namespace Vega
 {
 
+    namespace RendererBackendConfig
+    {
+
+        enum RendererBackendConfig : uint16_t
+        {
+            kRendererConfigFlagVsyncEnabledBit = 1,
+        };
+
+    }    // namespace RendererBackendConfig
+
     class RendererBackend
     {
     public:
@@ -23,6 +33,8 @@ namespace Vega
 
         virtual bool Init() = 0;
         virtual void Shutdown() = 0;
+
+        virtual bool OnWindowCreate(/* Ref<Window> _Window */) = 0;
 
         virtual void BeginFrame() = 0;
         virtual void EndFrame() = 0;

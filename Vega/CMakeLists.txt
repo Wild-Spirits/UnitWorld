@@ -72,6 +72,7 @@ set(SOURCES
     Source/Platform/Vulkan/Utils/VkUtils.hpp                                Source/Platform/Vulkan/Utils/VkUtils.cpp
     Source/Platform/Vulkan/Renderer/VkRendererBackend.hpp                   Source/Platform/Vulkan/Renderer/VkRendererBackend.cpp
     Source/Platform/Vulkan/Renderer/VkDeviceWrapper.hpp                     Source/Platform/Vulkan/Renderer/VkDeviceWrapper.cpp
+    Source/Platform/Vulkan/Renderer/VkSwapchain.hpp                         Source/Platform/Vulkan/Renderer/VkSwapchain.cpp
 
     Source/Platform/OpenGL/ImGui/OGLImGuiImpl.hpp                           Source/Platform/OpenGL/ImGui/OGLImGuiImpl.cpp
     Source/Platform/OpenGL/Renderer/OGLRendererBackend.hpp                  Source/Platform/OpenGL/Renderer/OGLRendererBackend.cpp

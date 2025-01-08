@@ -28,6 +28,8 @@ namespace Vega
         bool Init(VkContext& _Context);
         void Shutdown();
 
+        VkSwapchainSupportInfo GetSwapchainSupportInfo(VkSurfaceKHR _Surface) const;
+
         VkPhysicalDevice GetPhysicalDevice() const { return m_PhysicalDevice; }
         VkDevice GetLogicalDevice() const { return m_LogicalDevice; }
         const VkPhysicalDeviceQueueFamilyInfo& GetPhysicalDeviceQueueFamilyInfo() const
@@ -46,7 +48,6 @@ namespace Vega
 
         VkPhysicalDevice m_PhysicalDevice;
         VkDevice m_LogicalDevice;
-        VkSwapchainSupportInfo m_SwapchainSupportInfo;
 
         VkPhysicalDeviceQueueFamilyInfo m_PhysicalDeviceQueueFamilyInfo;
         bool m_SupportDeviceLocalHostVisible;

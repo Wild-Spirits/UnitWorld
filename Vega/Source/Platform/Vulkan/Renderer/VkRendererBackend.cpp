@@ -88,18 +88,6 @@ namespace Vega
             return false;
         }
 
-#ifdef VEGA_PLATFORM_DESKTOP
-        VkResult surfaceResult = glfwCreateWindowSurface(
-            m_VkContext.VkInstance, static_cast<GLFWwindow*>(Application::Get().GetWindow()->GetNativeWindow()),
-            m_VkContext.VkAllocator, &m_VkSurface);
-
-        if (surfaceResult != VK_SUCCESS)
-        {
-            VEGA_CORE_CRITICAL("Vulkan surface creation failed.");
-            return false;
-        }
-#endif
-
         VEGA_CORE_TRACE("Vulkan instance created");
 
 #ifdef _DEBUG
@@ -160,12 +148,40 @@ namespace Vega
             return false;
         }
 
+        return OnWindowCreate();
+    }
+
+    void VkRendererBackend::Shutdown()
+    {
+        // TODO: Implement
+    }
+
+    bool VkRendererBackend::OnWindowCreate(/* Ref<Window> _Window */)
+    {
+        auto _Window = Application::Get().GetWindow();
+
+        // TODO: Get window title, id, or address in memory
+        VEGA_CORE_TRACE("Creating Vulkan surface for window {}", "Main");
+#ifdef VEGA_PLATFORM_DESKTOP
+        VkResult surfaceResult =
+            glfwCreateWindowSurface(m_VkContext.VkInstance, static_cast<GLFWwindow*>(_Window->GetNativeWindow()),
+                                    m_VkContext.VkAllocator, &m_VkSurface);
+
+        if (surfaceResult != VK_SUCCESS)
+        {
+            VEGA_CORE_CRITICAL("Failed to create platform surface for window {}", "Main");
+            return false;
+        }
+#endif
+
+        VEGA_CORE_TRACE("Vulkan surface created for window {}", "Main");
+
+        m_VkSwapchain.Create(m_VkContext, m_VkDeviceWrapper, m_VkSurface);
+
         // TODO: Add code from "on window create"
 
         return true;
     }
-
-    void VkRendererBackend::Shutdown() { }
 
     void VkRendererBackend::BeginFrame() { }
 

@@ -3,6 +3,7 @@
 #include "Vega/Renderer/RendererBackend.hpp"
 #include "VkBase.hpp"
 #include "VkDeviceWrapper.hpp"
+#include "VkSwapchain.hpp"
 
 #include <vector>
 
@@ -16,6 +17,8 @@ namespace Vega
 
         virtual bool Init() override;
         virtual void Shutdown() override;
+
+        virtual bool OnWindowCreate(/* Ref<Wiondow> _Window */) override;
 
         virtual void BeginFrame() override;
         virtual void EndFrame() override;
@@ -36,6 +39,7 @@ namespace Vega
         std::vector<VkSampler> samplers;
 
         VkDeviceWrapper m_VkDeviceWrapper;
+        VkSwapchain m_VkSwapchain;
     };
 
 }    // namespace Vega
