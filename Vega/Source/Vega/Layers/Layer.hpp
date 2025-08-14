@@ -9,7 +9,7 @@ namespace Vega
     class Layer
     {
     public:
-        Layer(const std::string& name = "Layer");
+        Layer(std::string_view _Name = "Layer");
         virtual ~Layer() = default;
 
         virtual void OnAttach(Ref<EventManager> _EventManager) { }
@@ -17,11 +17,12 @@ namespace Vega
 
         virtual void OnUpdate() { }
         virtual void OnRender() { }
+        virtual void OnGuiRender() { }
 
-        const std::string& GetName() const { return m_DebugName; }
+        std::string_view GetName() const { return m_Name; }
 
     protected:
-        std::string m_DebugName;
+        std::string m_Name;
     };
 
 }    // namespace Vega

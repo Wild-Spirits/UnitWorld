@@ -11,6 +11,7 @@
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
 
+#include <backends/imgui_impl_glfw.h>
 #include <glm/glm.hpp>
 
 #define USE_CUSTOM_FONT true
@@ -23,26 +24,33 @@ namespace Vega
     // NOTE: Font viewer: https://fontdrop.info/#/?darkmode=true
     const std::string faFontsFolder = "Assets/Fonts/FA/";
 
-    ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") { }
+    ImGuiLayer::ImGuiLayer() : GuiLayer("ImGuiLayer") { }
 
     void ImGuiLayer::OnAttach(Ref<EventManager> _EventManager)
     {
-        m_ImGuiImpl = ImGuiImpl::Create();
+        Application& app = Application::Get();
+        GLFWwindow* window = static_cast<GLFWwindow*>(app.GetWindow()->GetNativeWindow());
+        Ref<RendererBackend> rendererBackend = app.GetRendererBackend();
+        m_ImGuiImpl = rendererBackend->CreateImGuiImpl();
 
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
+
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;    // Enable Keyboard Controls
         // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // Enable Docking
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;    // Enable Docking
+
+        // TODO: ImGuiConfigFlags_ViewportsEnable
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;    // Enable Multi-Viewport / Platform Windows
+
         // io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoTaskBarIcons;
         // io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoMerge;
 
 #if USE_CUSTOM_FONT
 
-        SetFontSizeByMonitorScale(Application::Get().GetWindow()->GetMonitorScale());
+        SetFontSizeByMonitorScale(app.GetWindow()->GetMonitorScale());
         m_ChangeSize = true;
         ChangeFontSize(false);
 
@@ -62,12 +70,28 @@ namespace Vega
 
         SetDarkThemeColors();
 
+        ImGuiMemAllocFunc allocFunc;
+        ImGuiMemFreeFunc freeFunc;
+        void* userData;
+        ImGui::GetAllocatorFunctions(&allocFunc, &freeFunc, &userData);
+
+        switch (rendererBackend->GetAPI())
+        {
+            case RendererBackendApi::kVulkan: ImGui_ImplGlfw_InitForVulkan(window, true); break;
+            case RendererBackendApi::kDirectX: VEGA_CORE_ASSERT(false, "DirectX not supported yet!"); break;
+            case RendererBackendApi::kOpenGL: ImGui_ImplGlfw_InitForOpenGL(window, true); break;
+            default: VEGA_CORE_ASSERT(false, "Unknown RendererAPI!");
+        }
+
+        m_ImGuiImpl->SetImGuiGlobalData(ImGui::GetCurrentContext(), &allocFunc, &freeFunc, &userData);
         m_ImGuiImpl->Init();
     }
 
     void ImGuiLayer::OnDetach()
     {
         m_ImGuiImpl->Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+
         ImGui::DestroyContext();
     }
 
@@ -87,34 +111,34 @@ namespace Vega
     //     }
     // }
 
-    void ImGuiLayer::OnUpdate()
+    void ImGuiLayer::OnUpdate() { }
+
+    void ImGuiLayer::OnGuiRender() { }
+
+    void ImGuiLayer::BeginGuiFrame()
     {
         ChangeFontSize(true);
 
         m_ImGuiImpl->NewFrame();
-
+        ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
-        if (ImGui::Begin("Test"))
-        {
-            ImGui::Text("Hello, world!");
-            ImGui::Text("Привет Мир!");
-
-            if (ImGui::Button(ICON_FA_FILE_WORD ICON_FA_BRIDGE ICON_FA_LINUX "Button"))
-            {
-            }
-
-            static char testText[256] = "";
-            ImGui::InputText("TestText", testText, 256);
-        }
-        ImGui::End();
-
-        ImGui::ShowDemoWindow();
-
-        ImGui::Render();
     }
 
-    void ImGuiLayer::OnRender() { m_ImGuiImpl->RenderFrame(); }
+    void ImGuiLayer::EndGuiFrame()
+    {
+        ImGuiIO& io = ImGui::GetIO();
+
+        ImGui::Render();
+        m_ImGuiImpl->RenderFrame();
+
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            m_ImGuiImpl->BackupCurrentWindowContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            m_ImGuiImpl->RestoreCurrentWindowContext();
+        }
+    }
 
     void ImGuiLayer::SetDarkThemeColors()
     {
@@ -176,19 +200,19 @@ namespace Vega
                 config.GlyphMinAdvanceX = fontSize;    // Use if you want to make the icon monospaced
                 // config.DstFont = font;
 
-                static const ImWchar icon_ranges_fa[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+                static const ImWchar iconRangesFa[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
                 std::filesystem::path farPath =
                     std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAR);
                 std::filesystem::path fasPath =
                     std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAS);
-                io.Fonts->AddFontFromFileTTF(farPath.string().c_str(), fontSize, &config, icon_ranges_fa);
-                io.Fonts->AddFontFromFileTTF(fasPath.string().c_str(), fontSize, &config, icon_ranges_fa);
+                io.Fonts->AddFontFromFileTTF(farPath.string().c_str(), fontSize, &config, iconRangesFa);
+                io.Fonts->AddFontFromFileTTF(fasPath.string().c_str(), fontSize, &config, iconRangesFa);
                 // io.Fonts->AddFontFromFileTTF(regFont.c_str(), fontSize, &config, );
 
-                static const ImWchar icon_ranges_fab[] = { ICON_MIN_FAB, ICON_MAX_FAB, 0 };
+                static const ImWchar iconRangesFab[] = { ICON_MIN_FAB, ICON_MAX_FAB, 0 };
                 std::filesystem::path fabPath =
                     std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAB);
-                io.Fonts->AddFontFromFileTTF(fabPath.string().c_str(), fontSize, &config, icon_ranges_fab);
+                io.Fonts->AddFontFromFileTTF(fabPath.string().c_str(), fontSize, &config, iconRangesFab);
 
                 m_Fonts[m_FontSize] = font;
             }

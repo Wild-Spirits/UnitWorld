@@ -18,6 +18,9 @@ namespace Vega
         static Ref<Logger> GetCoreLogger() { return s_CoreLogger; }
         static Ref<Logger> GetClientLogger() { return s_ClientLogger; }
 
+        static void SetPluginCoreLogger(Ref<Logger> _Logger) { s_CoreLogger = _Logger; }
+        static void SetPluginClientLogger(Ref<Logger> _Logger) { s_ClientLogger = _Logger; }
+
     protected:
         static inline Ref<Logger> s_CoreLogger;
         static inline Ref<Logger> s_ClientLogger;

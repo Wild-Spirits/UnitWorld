@@ -1,0 +1,7 @@
+{
+    "rendererConfig": {
+        "vsync": true,
+        "power_saving": false,
+        "enable_validation": true
+    }
+}

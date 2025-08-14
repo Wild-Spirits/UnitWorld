@@ -15,6 +15,7 @@ namespace Vega
 
         virtual uint32_t GetWidth() const override { return m_Data.Width; }
         virtual uint32_t GetHeight() const override { return m_Data.Height; }
+        virtual std::string_view GetTitle() const override { return m_Data.Title; }
         virtual float GetMonitorScale() const override { return m_Data.MonitorScale; }
 
         virtual void OnUpdate() override;

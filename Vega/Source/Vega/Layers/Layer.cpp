@@ -3,6 +3,6 @@
 namespace Vega
 {
 
-    Layer::Layer(const std::string& debugName) : m_DebugName(debugName) { }
+    Layer::Layer(std::string_view _Name) : m_Name(_Name) { }
 
 }    // namespace Vega

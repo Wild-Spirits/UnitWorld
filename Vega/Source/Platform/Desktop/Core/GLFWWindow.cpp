@@ -33,9 +33,9 @@ namespace Vega
 
         switch (m_Data.RendererAPI)
         {
-            case RendererBackend::API::kVulkan: glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); break;
+            case RendererBackendApi::kVulkan: glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); break;
 #ifdef _DEBUG
-            case RendererBackend::API::kOpenGL: glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE); break;
+            case RendererBackendApi::kOpenGL: glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE); break;
 #endif
         }
 
@@ -74,7 +74,7 @@ namespace Vega
         // glfwSetFramebufferSizeCallback
         // glfwSetDropCallback
 
-        glfwSwapInterval(1);
+        glfwSwapInterval(0);
 
         return true;
     }

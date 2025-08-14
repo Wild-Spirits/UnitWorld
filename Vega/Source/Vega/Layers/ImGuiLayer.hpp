@@ -4,7 +4,7 @@
 #include "Vega/Events/MouseEvent.hpp"
 #include "Vega/Events/WindowEvent.hpp"
 #include "Vega/ImGui/ImGuiImpl.hpp"
-#include "Vega/Layers/Layer.hpp"
+#include "Vega/Layers/GuiLayer.hpp"
 
 #include <unordered_map>
 
@@ -13,17 +13,20 @@ struct ImFont;
 namespace Vega
 {
 
-    class ImGuiLayer : public Layer
+    class ImGuiLayer : public GuiLayer
     {
     public:
         ImGuiLayer();
-        ~ImGuiLayer() = default;
+        virtual ~ImGuiLayer() {};
 
         virtual void OnAttach(Ref<EventManager> _EventManager) override;
         virtual void OnDetach() override;
 
         virtual void OnUpdate() override;
-        virtual void OnRender() override;
+        virtual void OnGuiRender() override;
+
+        virtual void BeginGuiFrame() override;
+        virtual void EndGuiFrame() override;
 
         void BlockEvents(bool block) { m_BlockEvents = block; }
 
@@ -36,12 +39,12 @@ namespace Vega
         void SetFontSizeByMonitorScale(float _MonitorScale) { m_FontSize = static_cast<int>(14.0f * _MonitorScale); }
 
     private:
-        Scope<ImGuiImpl> m_ImGuiImpl;
+        Ref<ImGuiImpl> m_ImGuiImpl;
 
         bool m_BlockEvents = true;
 
         bool m_ChangeSize = false;
-        int m_FontSize = 13;
+        int m_FontSize = 14;
 
         std::unordered_map<int, ImFont*> m_Fonts;
     };

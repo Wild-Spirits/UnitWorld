@@ -18,6 +18,10 @@ set(SOURCES
     Source/Vega/Core/EntryPoint.hpp
 
     Source/Vega/Renderer/RendererBackend.hpp                                Source/Vega/Renderer/RendererBackend.cpp
+    Source/Vega/Renderer/RendererBackendTypes.hpp
+    Source/Vega/Renderer/RendererBackendApi.hpp
+    Source/Vega/Renderer/Texture.hpp
+    Source/Vega/Renderer/Shader.hpp                                         Source/Vega/Renderer/Shader.cpp
 
     # Source/Vega/Buffers/BufferLayout.h
     # Source/Vega/Buffers/FrameBuffer.h                            Source/Vega/Buffers/FrameBuffer.cpp
@@ -26,12 +30,11 @@ set(SOURCES
     # Source/Vega/Buffers/ShaderStorageBuffer.h                    Source/Vega/Buffers/ShaderStorageBuffer.cpp
     # Source/Vega/Buffers/VertexArray.h                            Source/Vega/Buffers/VertexArray.cpp
 
-    # Source/Vega/Textures/Texture2D.h                             Source/Vega/Textures/Texture2D.cpp
     # Source/Vega/Textures/TextureLoader.h                         Source/Vega/Textures/TextureLoader.cpp
 
     # Source/Vega/Shader/ShaderDataType.h
-    # Source/Vega/Shader/Shader.h                                  Source/Vega/Shader/Shader.cpp 
-    # Source/Vega/Shader/ShaderLayout.h                            Source/Vega/Shader/ShaderLayout.cpp 
+    # Source/Vega/Shader/Shader.h                                  Source/Vega/Shader/Shader.cpp
+    # Source/Vega/Shader/ShaderLayout.h                            Source/Vega/Shader/ShaderLayout.cpp
     
     Source/Vega/Events/Event.hpp
     Source/Vega/Events/EventHandler.hpp
@@ -42,20 +45,25 @@ set(SOURCES
     
     Source/Vega/Layers/Layer.hpp                                            Source/Vega/Layers/Layer.cpp
     Source/Vega/Layers/LayerStack.hpp                                       Source/Vega/Layers/LayerStack.cpp
+    Source/Vega/Layers/GuiLayer.hpp
     Source/Vega/Layers/ImGuiLayer.hpp                                       Source/Vega/Layers/ImGuiLayer.cpp
 
     # Source/Vega/Utils/Timer.h
     # Source/Vega/Utils/DataLoading.h
+    Source/Vega/Utils/magic_enum.hpp
     Source/Vega/Utils/Logger.hpp                                            Source/Vega/Utils/Logger.cpp
     Source/Vega/Utils/Log.hpp                                               Source/Vega/Utils/Log.cpp
+    Source/Vega/Utils/PluginData.hpp                                        Source/Vega/Utils/PluginData.cpp
     # Source/Vega/Utils/FileDialogs.h
     # Source/Vega/Utils/json.hpp
     Source/Vega/Utils/utf8.hpp
+    
+    Source/Vega/Plugins/PluginLibrary.hpp                                   Source/Vega/Plugins/PluginLibrary.cpp
 
     Source/Vega/ImGui/Fonts/ImGuiFonts.hpp
     Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl
     Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl
-    Source/Vega/ImGui/ImGuiImpl.hpp                                         Source/Vega/ImGui/ImGuiImpl.cpp
+    Source/Vega/ImGui/ImGuiImpl.hpp
 
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
@@ -66,32 +74,27 @@ set(SOURCES
 
     Source/Platform/Platform.hpp
 
-    Source/Platform/Vulkan/Platform/VkPlatform.hpp
-    Source/Platform/Vulkan/Platform/VkPlatformWindows.cpp
-    Source/Platform/Vulkan/ImGui/VkImGuiImpl.hpp                            Source/Platform/Vulkan/ImGui/VkImGuiImpl.cpp
-    Source/Platform/Vulkan/Utils/VkUtils.hpp                                Source/Platform/Vulkan/Utils/VkUtils.cpp
-    Source/Platform/Vulkan/Renderer/VkRendererBackend.hpp                   Source/Platform/Vulkan/Renderer/VkRendererBackend.cpp
-    Source/Platform/Vulkan/Renderer/VkDeviceWrapper.hpp                     Source/Platform/Vulkan/Renderer/VkDeviceWrapper.cpp
-    Source/Platform/Vulkan/Renderer/VkSwapchain.hpp                         Source/Platform/Vulkan/Renderer/VkSwapchain.cpp
-
-    Source/Platform/OpenGL/ImGui/OGLImGuiImpl.hpp                           Source/Platform/OpenGL/ImGui/OGLImGuiImpl.cpp
-    Source/Platform/OpenGL/Renderer/OGLRendererBackend.hpp                  Source/Platform/OpenGL/Renderer/OGLRendererBackend.cpp
+    Source/Platform/OpenGL/ImGui/OpenGlImGuiImpl.hpp                        Source/Platform/OpenGL/ImGui/OpenGlImGuiImpl.cpp
+    Source/Platform/OpenGL/Renderer/OpenGlRendererBackend.hpp               Source/Platform/OpenGL/Renderer/OpenGlRendererBackend.cpp
+    Source/Platform/OpenGL/Renderer/OpenGlShader.hpp                        Source/Platform/OpenGL/Renderer/OpenGlShader.cpp
 
     Source/Platform/Desktop/Core/GLFWInputs.cpp
     Source/Platform/Desktop/Core/GLFWWindow.hpp                             Source/Platform/Desktop/Core/GLFWWindow.cpp
 
-    # Source/Platform/OpenGL/Textures/OGLCalcTextureParameters.h     Source/Platform/OpenGL/Textures/OGLCalcTextureParameters.cpp
+    Source/Platform/Windows/Plugins/WinPluginLibrary.cpp                     
 
-    # Source/Platform/OpenGL/Shader/OGLShader.h                      Source/Platform/OpenGL/Shader/OGLShader.cpp
+    # Source/Platform/OpenGL/Textures/OpenGlCalcTextureParameters.h     Source/Platform/OpenGL/Textures/OpenGlCalcTextureParameters.cpp
+
+    # Source/Platform/OpenGL/Shader/OpenGlShader.h                      Source/Platform/OpenGL/Shader/OpenGlShader.cpp
 
     
-    # Source/Platform/OpenGL4/Textures/OGL4Texture2D.h               Source/Platform/OpenGL4/Textures/OGL4Texture2D.cpp
+    # Source/Platform/OpenGL4/Textures/OpenGl4Texture2D.h               Source/Platform/OpenGL4/Textures/OpenGl4Texture2D.cpp
 
-    # Source/Platform/OpenGL4/Buffers/OGL4FrameBuffer.h              Source/Platform/OpenGL4/Buffers/OGL4FrameBuffer.cpp
-    # Source/Platform/OpenGL4/Buffers/OGL4IndexBuffer.h              Source/Platform/OpenGL4/Buffers/OGL4IndexBuffer.cpp
-    # Source/Platform/OpenGL4/Buffers/OGL4ShaderStorageBuffer.h      Source/Platform/OpenGL4/Buffers/OGL4ShaderStorageBuffer.cpp
-    # Source/Platform/OpenGL4/Buffers/OGL4VertexArray.h              Source/Platform/OpenGL4/Buffers/OGL4VertexArray.cpp
-    # Source/Platform/OpenGL4/Buffers/OGL4VertexBuffer.h             Source/Platform/OpenGL4/Buffers/OGL4VertexBuffer.cpp
+    # Source/Platform/OpenGL4/Buffers/OpenGl4FrameBuffer.h              Source/Platform/OpenGL4/Buffers/OpenGl4FrameBuffer.cpp
+    # Source/Platform/OpenGL4/Buffers/OpenGl4IndexBuffer.h              Source/Platform/OpenGL4/Buffers/OpenGl4IndexBuffer.cpp
+    # Source/Platform/OpenGL4/Buffers/OpenGl4ShaderStorageBuffer.h      Source/Platform/OpenGL4/Buffers/OpenGl4ShaderStorageBuffer.cpp
+    # Source/Platform/OpenGL4/Buffers/OpenGl4VertexArray.h              Source/Platform/OpenGL4/Buffers/OpenGl4VertexArray.cpp
+    # Source/Platform/OpenGL4/Buffers/OpenGl4VertexBuffer.h             Source/Platform/OpenGL4/Buffers/OpenGl4VertexBuffer.cpp
 
 
     # Source/Platform/Windows/Utils/WindowsFileDiologs.cpp
@@ -99,21 +102,20 @@ set(SOURCES
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 
-add_compile_definitions(GLEW_STATIC _LIB IMGUI_DEFINE_MATH_OPERATORS RES_FOLDER="${CMAKE_SOURCE_DIR}/")
+add_compile_definitions(GLEW_STATIC _LIB IMGUI_DEFINE_MATH_OPERATORS)
 
 find_package(OpenGL REQUIRED)
-find_package(Vulkan REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
-target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} Vulkan::Vulkan glm args glfw glew stb imgui nfd)
+target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} glm args glfw glew stb imgui nfd)
 
-if(MSVC)
-    target_link_libraries(${PROJECT_NAME} opengl32)
-else()
-    target_link_libraries(${PROJECT_NAME} GL)
-endif()
+# if(MSVC)
+#     target_link_libraries(${PROJECT_NAME} opengl32)
+# else()
+#     target_link_libraries(${PROJECT_NAME} GL)
+# endif()
 
 include(FetchContent)
 
@@ -177,10 +179,9 @@ if (NOT imgui_POPULATED)
         ${IMGUI_SOURCES}
         ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.h ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
     )
     target_include_directories(imgui PUBLIC ${IMGUI_INCLUDE_DIR})
-    target_link_libraries(imgui glfw Vulkan::Vulkan)
+    target_link_libraries(imgui glfw)
 endif ()
 
 FetchContent_Declare(

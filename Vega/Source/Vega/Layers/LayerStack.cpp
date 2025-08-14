@@ -40,4 +40,15 @@ namespace Vega
         }
     }
 
+    void LayerStack::Clear()
+    {
+        // TODO: May need to detach layers in reverse order
+        for (Ref<Layer> layer : m_Layers)
+        {
+            layer->OnDetach();
+        }
+        m_Layers.clear();
+        m_LayerInsertIndex = 0;
+    }
+
 }    // namespace Vega

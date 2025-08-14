@@ -6,7 +6,9 @@
 #include "Vega/Core/Window.hpp"
 #include "Vega/Events/EventManager.hpp"
 #include "Vega/Events/WindowEvent.hpp"
+#include "Vega/Layers/GuiLayer.hpp"
 #include "Vega/Layers/LayerStack.hpp"
+#include "Vega/Plugins/PluginLibrary.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
 
 #include <functional>
@@ -32,7 +34,8 @@ namespace Vega
     {
         std::string Name = "Vega Application";
         std::string WorkingDirectory;
-        RendererBackend::API RendererAPI = RendererBackend::API::kVulkan;
+        std::string BinaryDirectory;
+        RendererBackendApi RendererAPI = RendererBackendApi::kVulkan;
         ApplicationCommandLineArgs CommandLineArgs;
     };
 
@@ -50,6 +53,7 @@ namespace Vega
         void Close();
 
         static Application& Get() { return *s_Instance; }
+        static void SetPluginApp(Application* _App) { s_Instance = _App; }
 
         const ApplicationProps& GetProps() const { return m_Props; }
 
@@ -66,13 +70,20 @@ namespace Vega
         bool OnWindowClose(const WindowCloseEvent& _Event);
         bool OnWindowResize(const WindowResizeEvent& _Event);
 
+    protected:
+        Ref<GuiLayer> m_GuiLayer;
+
     private:
         ApplicationProps m_Props;
         Ref<Window> m_Window;
+
+        Ref<PluginLibrary> m_RendererBackendPlugin;
         Ref<RendererBackend> m_RendererBackend;
+
         Ref<EventManager> m_EventManager;
         bool m_Running = true;
         bool m_Minimized = false;
+        bool m_Resizing = false;
         LayerStack m_LayerStack;
         float m_LastFrameTime = 0.0f;
 

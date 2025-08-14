@@ -65,11 +65,12 @@ namespace Vega
         }
 
         void SetColor(ConsoleColorType _TXT = ConsoleTxtColor::White, ConsoleColorType _BG = ConsoleBgColor::Black);
+        void Reset();
 
         template <typename... Args>
         void Trace(std::string_view _LogFormat, Args&&... _Args)
         {
-            std::unique_lock Lock(m_Mtx);
+            // std::unique_lock Lock(m_Mtx);
             std::cerr << Format(s_FormatBase, "DEBUG");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
@@ -78,53 +79,53 @@ namespace Vega
         template <typename... Args>
         void Info(std::string_view _LogFormat, Args&&... _Args)
         {
-            std::unique_lock Lock(m_Mtx);
+            // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Green);
             std::cerr << Format(s_FormatBase, "INFO");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
-            SetColor();
+            Reset();
         }
 
         template <typename... Args>
         void Warn(std::string_view _LogFormat, Args&&... _Args)
         {
-            std::unique_lock Lock(m_Mtx);
+            // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Yellow);
             std::cerr << Format(s_FormatBase, "WARN");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
-            SetColor();
+            Reset();
         }
 
         template <typename... Args>
         void Error(std::string_view _LogFormat, Args&&... _Args)
         {
-            std::unique_lock Lock(m_Mtx);
+            // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Red);
             std::cerr << Format(s_FormatBase, "ERROR");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
-            SetColor();
+            Reset();
         }
 
         template <typename... Args>
         void Critical(std::string_view _LogFormat, Args&&... _Args)
         {
-            std::unique_lock Lock(m_Mtx);
+            // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Red);
             std::cerr << Format(s_FormatBase, "FATAL");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
-            SetColor();
+            Reset();
         }
 
         void LogDecorate()
         {
-            std::unique_lock Lock(m_Mtx);
+            // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::LightGray);
             std::cerr << "========================================" << std::endl;
-            SetColor();
+            Reset();
         }
 
     protected:

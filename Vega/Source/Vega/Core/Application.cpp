@@ -14,13 +14,13 @@ namespace Vega
 
     Application::Application(const ApplicationProps& _Props) : m_Props(_Props)
     {
+        Log::Init();
+
         VEGA_CORE_ASSERT(!s_Instance, "Application already exists!");
         s_Instance = this;
 
-        Log::Init();
-        NFD_Init();
+        NFD::Init();
 
-        // Set working directory here
         if (!_Props.WorkingDirectory.empty())
         {
             std::filesystem::current_path(_Props.WorkingDirectory);
@@ -34,8 +34,11 @@ namespace Vega
         m_Window = Window::Create(windowProps);
         m_Window->SetEventManager(m_EventManager);
 
-        m_RendererBackend = RendererBackend::Create(_Props.RendererAPI);
+        RendererBackend::CreateReturnValue rendererBackend = RendererBackend::Create(_Props.RendererAPI);
+        m_RendererBackendPlugin = rendererBackend.Plugin;
+        m_RendererBackend = rendererBackend.Backend;
         m_RendererBackend->Init();
+        m_RendererBackend->OnWindowCreate(m_Window);
 
         m_EventManager->Subscribe(EventHandler<WindowResizeEvent>(VEGA_BIND_EVENT_FN(OnWindowResize)));
         m_EventManager->Subscribe(EventHandler<WindowCloseEvent>(VEGA_BIND_EVENT_FN(OnWindowClose)));
@@ -43,8 +46,12 @@ namespace Vega
 
     Application::~Application()
     {
+        m_LayerStack.Clear();
+
+        m_RendererBackend->OnWindowDestroy(m_Window);
         m_RendererBackend->Shutdown();
-        NFD_Quit();
+
+        NFD::Quit();
     }
 
     void Application::PushLayer(Ref<Layer> _Layer)
@@ -72,8 +79,6 @@ namespace Vega
             float timestep = time - m_LastFrameTime;
             m_LastFrameTime = time;
 
-            m_RendererBackend->BeginFrame();
-
             for (Ref<Layer> layer : m_LayerStack)
             {
                 layer->OnUpdate();
@@ -81,15 +86,45 @@ namespace Vega
 
             if (!m_Minimized)
             {
-                for (Ref<Layer> layer : m_LayerStack)
+                if (m_Resizing)
                 {
-                    layer->OnRender();
+                    m_RendererBackend->OnResize();
+                    m_RendererBackend->FramePrepareWindowSurface();
+                    m_Resizing = false;
+                }
+                else
+                {
+                    if (m_RendererBackend->FramePrepareWindowSurface())
+                    {
+                        m_RendererBackend->FrameCommandListBegin();
+
+                        for (Ref<Layer> layer : m_LayerStack)
+                        {
+                            layer->OnRender();
+                        }
+
+                        // if (m_GuiLayer)
+                        // {
+                        //     m_GuiLayer->BeginGuiFrame();
+                        //     for (Ref<Layer> layer : m_LayerStack)
+                        //     {
+                        //         layer->OnGuiRender();
+                        //     }
+                        //     m_GuiLayer->EndGuiFrame();
+                        // }
+
+                        // TODO: Use rendergraph here
+                        m_RendererBackend->TmpRendergraphExecute();
+
+                        m_RendererBackend->FrameCommandListEnd();
+                        m_RendererBackend->FrameSubmit();
+                        m_RendererBackend->FramePresent();
+                    }
                 }
             }
 
-            m_RendererBackend->EndFrame();
-
             m_Window->OnUpdate();
+
             m_EventManager->DispatchEvents();
         }
     }
@@ -109,6 +144,7 @@ namespace Vega
         }
 
         m_Minimized = false;
+        m_Resizing = true;
 
         return false;
     }

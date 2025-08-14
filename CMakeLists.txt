@@ -35,7 +35,7 @@ if(MSVC)
 
     # TODO: add to release: /O2 /Oi /Ot /Ob2 /GL 
 	set(ERROR_FLAGS "${ERROR_FLAGS} /Wall /WX /sdl")
-    set(SANITIZER_FLAGS "/fsanitize=address")
+    # set(SANITIZER_FLAGS "/fsanitize=address")
 else()
 	set(ERROR_FLAGS "${ERROR_FLAGS} -Wall -Wpedantic -Werror -g")
     set(SANITIZER_FLAGS "-fsanitize=leak,undefined,address")
@@ -53,9 +53,16 @@ if (${DEBUG})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
-add_compile_definitions(OPENGL RES_FOLDER="${CMAKE_SOURCE_DIR}/")
+add_compile_definitions(OPENGL RES_FOLDER="${CMAKE_SOURCE_DIR}" BIN_FOLDER="${CMAKE_BINARY_DIR}")
 # add_custom_target(check chmod 777 ${CMAKE_SOURCE_DIR}/lint.sh && ${CMAKE_SOURCE_DIR}/lint.sh)
 
+
+
 add_subdirectory(Vega)
+add_subdirectory(VegaPlugins/VegaVulkanRenderer)
+
 add_subdirectory(Editor)
+add_dependencies(Editor VegaVulkanRenderer)
+
 # add_subdirectory(Runtime)
+# add_dependencies(Runtime VegaVulkanRenderer)

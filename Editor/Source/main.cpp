@@ -16,7 +16,8 @@ namespace Vega
         App(const ApplicationProps& _Props) : Application(_Props)
         {
             PushLayer(CreateRef<EditorLayer>());
-            PushOverlay(CreateRef<ImGuiLayer>());
+            m_GuiLayer = CreateRef<ImGuiLayer>();
+            PushOverlay(m_GuiLayer);
         }
     };
 
@@ -55,19 +56,20 @@ namespace Vega
         props.Name = "Unit World Editor";
         props.CommandLineArgs = _Args;
         props.WorkingDirectory = RES_FOLDER;    // TODO: check is it working with cyrillic symbols
-        props.RendererAPI = RendererBackend::API::kVulkan;
+        props.BinaryDirectory = BIN_FOLDER;
+        props.RendererAPI = RendererBackendApi::kVulkan;
 
         if (rendererAPIOpenGL)
         {
-            props.RendererAPI = RendererBackend::API::kOpenGL;
+            props.RendererAPI = RendererBackendApi::kOpenGL;
         }
         if (rendererAPIDirectX)
         {
-            props.RendererAPI = RendererBackend::API::kDirectX;
+            props.RendererAPI = RendererBackendApi::kDirectX;
         }
         if (rendererAPIVulkan)
         {
-            props.RendererAPI = RendererBackend::API::kVulkan;
+            props.RendererAPI = RendererBackendApi::kVulkan;
         }
 
         return new App(props);
