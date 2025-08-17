@@ -10,51 +10,81 @@
 namespace Vega
 {
 
+    // TODO: add selection of stream handle for color change by enum (log/error).
+    // TODO: like cout or cerr. Default cout?
     class Logger
     {
     public:
 #ifdef _WIN32
-        enum class ConsoleColorType
+        enum class ConsoleTxtColor : uint32_t
         {
-            Black = 0,
-            Blue = 1,
-            Green = 2,
-            Cyan = 3,
-            Red = 4,
-            Magenta = 5,
+            Black = 30,    // +
+            Blue = 34,     // +
+            Green = 32,    // +
+            // Cyan = 3,
+            Red = 31,        // +
+            Magenta = 35,    // +
             // Brown        = 6, // No bash Color!
-            LightGray = 7,
-            DarkGray = 8,
-            LightBlue = 9,
-            LightGreen = 10,
-            LightCyan = 11,
-            LightRed = 12,
-            LightMagenta = 13,
-            Yellow = 14,
-            White = 15
+            // LightGray = 7,
+            // DarkGray = 8,
+            LightBlue = 36,    // +
+            // LightGreen = 10,
+            // LightCyan = 11,
+            // LightRed = 12,
+            // LightMagenta = 13,
+            Yellow = 33,    // +
+            White = 37      // +
+        };
+
+        enum class ConsoleBgColor : uint32_t
+        {
+            None = 0,
+            Black = 40,    // +
+            Blue = 44,     // +
+            Green = 42,    // +
+            // Cyan = 3,
+            Red = 41,        // +
+            Magenta = 45,    // +
+            // Brown        = 6, // No bash Color!
+            // LightGray = 7,
+            // DarkGray = 8,
+            LightBlue = 46,    // +
+            // LightGreen = 10,
+            // LightCyan = 11,
+            // LightRed = 12,
+            // LightMagenta = 13,
+            Yellow = 43,    // +
+            White = 47      // +
         };
 #else
-        enum class ConsoleColorType : short
+        enum class ConsoleColorType : uint32_t
         {
+            None = 0,
             Black = 30,
             Blue = 34,
             Green = 32,
-            Cyan = 36,
+            // Cyan = 36,
             Red = 31,
             Magenta = 35,
-            LightGray = 37,
-            DarkGray = 90,
+            // LightGray = 37,
+            // DarkGray = 90,
             LightBlue = 94,
-            LightGreen = 92,
-            LightCyan = 96,
-            LightRed = 91,
-            LightMagenta = 95,
+            // LightGreen = 92,
+            // LightCyan = 96,
+            // LightRed = 91,
+            // LightMagenta = 95,
             Yellow = 33,
             White = 97,
         };
-#endif
         typedef ConsoleColorType ConsoleTxtColor;
         typedef ConsoleColorType ConsoleBgColor;
+#endif
+
+        enum class ConsoleStreamHandle
+        {
+            kCout,
+            kCerr,
+        };
 
         Logger()
         {
@@ -64,16 +94,19 @@ namespace Vega
             // #endif
         }
 
-        void SetColor(ConsoleColorType _TXT = ConsoleTxtColor::White, ConsoleColorType _BG = ConsoleBgColor::Black);
-        void Reset();
+        void SetColor(ConsoleTxtColor _TXT = ConsoleTxtColor::White, ConsoleBgColor _BG = ConsoleBgColor::None,
+                      ConsoleStreamHandle _StreamHandle = ConsoleStreamHandle::kCout);
+        void Reset(ConsoleStreamHandle _StreamHandle = ConsoleStreamHandle::kCout);
 
         template <typename... Args>
         void Trace(std::string_view _LogFormat, Args&&... _Args)
         {
             // std::unique_lock Lock(m_Mtx);
-            std::cerr << Format(s_FormatBase, "DEBUG");
-            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
-            std::cerr << std::endl;
+            SetColor(ConsoleTxtColor::White);
+            std::cout << Format(s_FormatBase, "DEBUG");
+            std::cout << Format(_LogFormat, std::forward<Args>(_Args)...);
+            std::cout << std::endl;
+            Reset();
         }
 
         template <typename... Args>
@@ -81,9 +114,9 @@ namespace Vega
         {
             // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Green);
-            std::cerr << Format(s_FormatBase, "INFO");
-            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
-            std::cerr << std::endl;
+            std::cout << Format(s_FormatBase, "INFO");
+            std::cout << Format(_LogFormat, std::forward<Args>(_Args)...);
+            std::cout << std::endl;
             Reset();
         }
 
@@ -92,9 +125,9 @@ namespace Vega
         {
             // std::unique_lock Lock(m_Mtx);
             SetColor(ConsoleTxtColor::Yellow);
-            std::cerr << Format(s_FormatBase, "WARN");
-            std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
-            std::cerr << std::endl;
+            std::cout << Format(s_FormatBase, "WARN");
+            std::cout << Format(_LogFormat, std::forward<Args>(_Args)...);
+            std::cout << std::endl;
             Reset();
         }
 
@@ -102,7 +135,7 @@ namespace Vega
         void Error(std::string_view _LogFormat, Args&&... _Args)
         {
             // std::unique_lock Lock(m_Mtx);
-            SetColor(ConsoleTxtColor::Red);
+            SetColor(ConsoleTxtColor::Red, ConsoleBgColor::None, ConsoleStreamHandle::kCerr);
             std::cerr << Format(s_FormatBase, "ERROR");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
@@ -113,7 +146,7 @@ namespace Vega
         void Critical(std::string_view _LogFormat, Args&&... _Args)
         {
             // std::unique_lock Lock(m_Mtx);
-            SetColor(ConsoleTxtColor::Red);
+            SetColor(ConsoleTxtColor::Red, ConsoleBgColor::None, ConsoleStreamHandle::kCerr);
             std::cerr << Format(s_FormatBase, "FATAL");
             std::cerr << Format(_LogFormat, std::forward<Args>(_Args)...);
             std::cerr << std::endl;
@@ -123,8 +156,9 @@ namespace Vega
         void LogDecorate()
         {
             // std::unique_lock Lock(m_Mtx);
-            SetColor(ConsoleTxtColor::LightGray);
-            std::cerr << "========================================" << std::endl;
+            SetColor(ConsoleTxtColor::LightBlue);
+            std::cout << "========================================";
+            std::cout << std::endl;
             Reset();
         }
 

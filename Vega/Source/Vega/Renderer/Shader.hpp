@@ -146,14 +146,14 @@ namespace Vega
 
         std::vector<uint32_t> GlobalSamplerIndices;
         std::vector<uint32_t> InstanceSamplerIndices;
-        std::vector<ShaderUniform> Uniforms;
+        std::vector<ShaderUniform> Uniforms = {};
 
-        FaceCullMode CullMode = FaceCullMode::kFront;
+        FaceCullMode CullMode = FaceCullMode::kBack;
         PrimitiveTopologyTypes TopologyTypes = PrimitiveTopologyTypeBits::kTriangleList;
 
-        ShaderFlags Flags = ShaderFlagBits::kNone;
+        ShaderFlags Flags = ShaderFlagBits::kColorWrite;
 
-        std::vector<ShaderAttributeType> Attributes;
+        std::vector<ShaderAttributeType> Attributes = {};
 
         uint32_t GetAttibutesStride() const
         {

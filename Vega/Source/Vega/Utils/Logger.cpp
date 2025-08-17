@@ -1,4 +1,5 @@
 #include "Logger.hpp"
+#include <iostream>
 
 #ifdef _WIN32
     #define NOMINMAX
@@ -9,24 +10,45 @@
 namespace Vega
 {
 
-    void Logger::SetColor(ConsoleColorType _TXT, ConsoleColorType _BG)
+    static std::ostream& getConsoleStreamHandle(Logger::ConsoleStreamHandle _StreamHandle)
     {
+        if (_StreamHandle == Logger::ConsoleStreamHandle::kCerr)
+        {
+            return std::cerr;
+        }
+
+        return std::cout;
+    }
+
+    void Logger::SetColor(ConsoleTxtColor _TXT, ConsoleBgColor _BG, ConsoleStreamHandle _StreamHandle)
+    {
+        std::ostream& stream = getConsoleStreamHandle(_StreamHandle);
+
 #ifdef _WIN32
         // HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
         // SetConsoleTextAttribute(hStdOut, (WORD)(((int)_BG << 4) | ((int)_TXT)));
 
-        // TODO: Use this
-        std::string Style =
-            "\u001b[" + std::to_string(31) + "m";    //+ "\u001b[" + std::to_string(1) + ";" + std::to_string(31) + "m";
-        std::cerr << Style;
+        std::string style =
+            ("\u001b[" + std::to_string(static_cast<uint32_t>(_TXT)) + "m") +
+            (_BG != ConsoleBgColor::None ? ("\u001b[" + std::to_string(static_cast<uint32_t>(_BG)) + "m") : "");
 
+        stream << style;
 #else
         std::string Style = "\033[" + std::to_string((short)_BG) + ";" + std::to_string((short)_TXT) + "m";
-        std::cerr << Style;
-        // std::cerr << "\033[0m \n"; // To reset atr
+        stream << Style;
+        // stream << "\033[0m \n"; // To reset atr
 #endif
     }
 
-    void Logger::Reset() { std::cerr << "\033[0m"; }
+    void Logger::Reset(ConsoleStreamHandle _StreamHandle)
+    {
+        std::ostream& stream = getConsoleStreamHandle(_StreamHandle);
+
+#ifdef _WIN32
+        stream << "\u001b[0m";
+#else
+        stream << "\033[0m";
+#endif
+    }
 
 }    // namespace Vega

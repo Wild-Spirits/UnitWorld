@@ -638,7 +638,7 @@ namespace Vega
 
         VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-            .logicOpEnable = VK_TRUE,
+            .logicOpEnable = VK_FALSE,
             .logicOp = VK_LOGIC_OP_COPY,
             .attachmentCount = 1,
             .pAttachments = &colorBlendAttachmentState,
@@ -855,20 +855,32 @@ namespace Vega
         const char* bytes = shaderc_result_get_bytes(compilationResult);
         size_t bytesLength = shaderc_result_get_length(compilationResult);
 
-        std::shared_ptr<char*> code = std::make_shared<char*>(new char[bytesLength]);
-        std::memcpy(*code, bytes, bytesLength);
-
-        shaderc_result_release(compilationResult);
+        std::ofstream outFile(std::format("{}.spv", _ShaderStageConfig.Path), std::ios::binary);
+        if (outFile.is_open())
+        {
+            outFile.write(bytes, bytesLength);
+            outFile.close();
+        }
+        else
+        {
+            VEGA_CORE_WARN("Failed to write SPIR-V binary to file: {}.spv", _ShaderStageConfig.Path);
+        }
 
         VulkanShaderStage resStage {};
         resStage.CreateInfo = {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = bytesLength,
-            .pCode = reinterpret_cast<uint32_t*>(*code),
+            .pCode = reinterpret_cast<const uint32_t*>(bytes),
         };
 
         VK_CHECK(vkCreateShaderModule(rendererBackend->GetVkDeviceWrapper().GetLogicalDevice(), &resStage.CreateInfo,
                                       context.VkAllocator, &resStage.Handle));
+
+        // NOTE: may need to use this in resStage.CreateInfo
+        // std::shared_ptr<char*> code = std::make_shared<char*>(new char[bytesLength]);
+        // std::memcpy(*code, bytes, bytesLength);
+
+        shaderc_result_release(compilationResult);
 
         resStage.ShaderStageCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
