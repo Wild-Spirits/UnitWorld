@@ -203,10 +203,13 @@ namespace Vega
     class Shader
     {
     public:
+        virtual ~Shader() = default;
+
         virtual void Create(const ShaderConfig& _ShaderConfig,
                             const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) = 0;
 
         virtual void Initialize() = 0;
+        virtual void Shutdown() = 0;
 
         virtual bool Bind() = 0;
 

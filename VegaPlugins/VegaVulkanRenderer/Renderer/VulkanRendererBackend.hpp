@@ -69,6 +69,8 @@ namespace Vega
 
         VkCommandBuffer GetCurrentGraphicsCommandBuffer() const;
 
+        uint32_t GetCurrentImageIndex() const { return m_ImageIndex; }
+
         // TODO: add color and depth/stencil attachments in other way ?
         void BeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
                             std::vector<std::vector<Ref<Texture>>> _ColorTargets,
@@ -94,6 +96,10 @@ namespace Vega
 
         Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                  const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override;
+
+        Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override;
+
+        Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override;
 
         /**
          * @brief Retrieves the singleton instance of the VulkanRendererBackend.

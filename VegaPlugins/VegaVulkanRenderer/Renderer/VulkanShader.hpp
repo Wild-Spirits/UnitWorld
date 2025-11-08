@@ -105,6 +105,7 @@ namespace Vega
                     const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override;
 
         void Initialize() override;
+        void Shutdown() override;
 
         bool Bind() override;
 
@@ -117,8 +118,8 @@ namespace Vega
         VkFrontFace GetVkFrontFace(RendererWinding _Winding) const;
         VkPrimitiveTopology GetVkPrimitiveTopology(PrimitiveTopologyTypes _TopologyTypes) const;
 
-        bool CreateGraphicsPipline(const VulkanPiplineConfig& _PipelineConfig, VulkanPipeline& _OutPipeline);
-        bool DestroyGraphicsPipline(VulkanPipeline& _OutPipeline);
+        bool CreateGraphicsPipeline(const VulkanPiplineConfig& _PipelineConfig, VulkanPipeline& _OutPipeline);
+        bool DestroyGraphicsPipeline(VulkanPipeline& _Pipeline);
 
         std::optional<VulkanShaderStage> CreateShaderModule(const ShaderStageConfig& _ShaderStageConfig);
 

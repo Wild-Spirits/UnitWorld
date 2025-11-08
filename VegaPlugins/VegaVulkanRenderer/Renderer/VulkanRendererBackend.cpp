@@ -1,10 +1,13 @@
 #include "VulkanRendererBackend.hpp"
 
 #include "Vega/Core/Application.hpp"
+#include "Vega/Core/Base.hpp"
 #include "Vega/Utils/Log.hpp"
 
 #include "Platform/Platform.hpp"
+#include "VulkanFrameBuffer.hpp"
 #include "VulkanShader.hpp"
+#include "VulkanTexture.hpp"
 #include <vulkan/vulkan_core.h>
 
 #ifdef VEGA_PLATFORM_DESKTOP
@@ -160,8 +163,9 @@ namespace Vega
 
     void VulkanRendererBackend::Shutdown()
     {
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
 
-        vkDeviceWaitIdle(m_VkDeviceWrapper.GetLogicalDevice());
+        vkDeviceWaitIdle(logicalDevice);
 
         DestroyImGuiDescriptorPool();
 
@@ -195,6 +199,7 @@ namespace Vega
     // TODO: Add per window resources to be able to create multiple windows (not imgui)
     bool VulkanRendererBackend::OnWindowCreate(Ref<Window> _Window)
     {
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
         std::string_view windowTitle = _Window->GetTitle();
 
         VEGA_CORE_TRACE("Creating Vulkan surface for window {}", _Window->GetTitle());
@@ -233,18 +238,17 @@ namespace Vega
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
                 };
 
-                VK_CHECK(vkCreateSemaphore(m_VkDeviceWrapper.GetLogicalDevice(), &semaphoreCreateInfo,
-                                           m_VkContext.VkAllocator, &m_ImageAvailableSemaphores[i]));
-                VK_CHECK(vkCreateSemaphore(m_VkDeviceWrapper.GetLogicalDevice(), &semaphoreCreateInfo,
-                                           m_VkContext.VkAllocator, &m_QueueCompleteSemaphores[i]));
+                VK_CHECK(vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, m_VkContext.VkAllocator,
+                                           &m_ImageAvailableSemaphores[i]));
+                VK_CHECK(vkCreateSemaphore(logicalDevice, &semaphoreCreateInfo, m_VkContext.VkAllocator,
+                                           &m_QueueCompleteSemaphores[i]));
 
                 VkFenceCreateInfo fenceCreateInfo = {
                     .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
                     .flags = VK_FENCE_CREATE_SIGNALED_BIT,
                 };
 
-                VK_CHECK(vkCreateFence(m_VkDeviceWrapper.GetLogicalDevice(), &fenceCreateInfo, m_VkContext.VkAllocator,
-                                       &m_InFlightFences[i]));
+                VK_CHECK(vkCreateFence(logicalDevice, &fenceCreateInfo, m_VkContext.VkAllocator, &m_InFlightFences[i]));
 
                 // ! Important
                 // TODO: create renderbuffers
@@ -282,28 +286,29 @@ namespace Vega
 
     void VulkanRendererBackend::OnWindowDestroy(Ref<Window> _Window)
     {
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
+
         for (VkSemaphore semaphore : m_ImageAvailableSemaphores)
         {
-            vkDestroySemaphore(m_VkDeviceWrapper.GetLogicalDevice(), semaphore, m_VkContext.VkAllocator);
+            vkDestroySemaphore(logicalDevice, semaphore, m_VkContext.VkAllocator);
         }
         m_ImageAvailableSemaphores.clear();
 
         for (VkSemaphore semaphore : m_QueueCompleteSemaphores)
         {
-            vkDestroySemaphore(m_VkDeviceWrapper.GetLogicalDevice(), semaphore, m_VkContext.VkAllocator);
+            vkDestroySemaphore(logicalDevice, semaphore, m_VkContext.VkAllocator);
         }
         m_QueueCompleteSemaphores.clear();
 
         for (VkFence fence : m_InFlightFences)
         {
-            vkDestroyFence(m_VkDeviceWrapper.GetLogicalDevice(), fence, m_VkContext.VkAllocator);
+            vkDestroyFence(logicalDevice, fence, m_VkContext.VkAllocator);
         }
         m_InFlightFences.clear();
 
         for (VkCommandBuffer commandBuffer : m_GraphicsCommandBuffer)
         {
-            vkFreeCommandBuffers(m_VkDeviceWrapper.GetLogicalDevice(), m_VkDeviceWrapper.GetGraphicsCommandPool(), 1,
-                                 &commandBuffer);
+            vkFreeCommandBuffers(logicalDevice, m_VkDeviceWrapper.GetGraphicsCommandPool(), 1, &commandBuffer);
         }
         m_GraphicsCommandBuffer.clear();
 
@@ -329,10 +334,12 @@ namespace Vega
     {
         // TODO: Implement spawchain recreation
 
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
+
         if (m_IsNeedRecreateSwapchain)
         {
             VEGA_CORE_TRACE("m_IsNeedRecreateSwapchain");
-            VkResult deviceIdleResult = vkDeviceWaitIdle(m_VkDeviceWrapper.GetLogicalDevice());
+            VkResult deviceIdleResult = vkDeviceWaitIdle(logicalDevice);
             if (!VulkanResultIsSuccess(deviceIdleResult))
             {
                 VEGA_CORE_CRITICAL("FramePrepareWindowSurface vkDeviceWaitIdle failed: {}",
@@ -366,8 +373,8 @@ namespace Vega
             return false;
         }
 
-        VkResult inFlightResult = vkWaitForFences(m_VkDeviceWrapper.GetLogicalDevice(), 1,
-                                                  &m_InFlightFences[m_CurrentFrame], true, UINT64_MAX);
+        VkResult inFlightResult =
+            vkWaitForFences(logicalDevice, 1, &m_InFlightFences[m_CurrentFrame], true, UINT64_MAX);
         if (!VulkanResultIsSuccess(inFlightResult))
         {
             VEGA_CORE_CRITICAL("In-flight fence wait failure! error: {}", VulkanResultString(inFlightResult, true));
@@ -376,7 +383,7 @@ namespace Vega
         }
 
         VkResult acquireNextImageResult =
-            vkAcquireNextImageKHR(m_VkDeviceWrapper.GetLogicalDevice(), m_VkSwapchain.GetSwapchainHandle(), UINT64_MAX,
+            vkAcquireNextImageKHR(logicalDevice, m_VkSwapchain.GetSwapchainHandle(), UINT64_MAX,
                                   m_ImageAvailableSemaphores[m_CurrentFrame], 0, &m_ImageIndex);
 
         if (acquireNextImageResult == VK_ERROR_OUT_OF_DATE_KHR)
@@ -394,7 +401,7 @@ namespace Vega
             return false;
         }
 
-        VK_CHECK(vkResetFences(m_VkDeviceWrapper.GetLogicalDevice(), 1, &m_InFlightFences[m_CurrentFrame]));
+        VK_CHECK(vkResetFences(logicalDevice, 1, &m_InFlightFences[m_CurrentFrame]));
 
         // ! Important
         // TODO: Reset staging buffer
@@ -574,6 +581,7 @@ namespace Vega
 
     bool VulkanRendererBackend::RecreateSwapchain()
     {
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
         auto _Window = Application::Get().GetWindow();
 
         if (_Window->GetWidth() == 0 || _Window->GetHeight() == 0)
@@ -581,7 +589,7 @@ namespace Vega
             return false;
         }
 
-        vkDeviceWaitIdle(m_VkDeviceWrapper.GetLogicalDevice());
+        vkDeviceWaitIdle(logicalDevice);
 
         m_VkDeviceWrapper.DetectDepthFormat();
 
@@ -595,8 +603,8 @@ namespace Vega
         {
             if (graphicsCommandBuffer)
             {
-                vkFreeCommandBuffers(m_VkDeviceWrapper.GetLogicalDevice(), m_VkDeviceWrapper.GetGraphicsCommandPool(),
-                                     1, &graphicsCommandBuffer);
+                vkFreeCommandBuffers(logicalDevice, m_VkDeviceWrapper.GetGraphicsCommandPool(), 1,
+                                     &graphicsCommandBuffer);
             }
         }
         m_GraphicsCommandBuffer.clear();
@@ -608,6 +616,7 @@ namespace Vega
 
     bool VulkanRendererBackend::CreateGraphicsCommandBuffer(Ref<Window> _Window)
     {
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
         std::string_view windowTitle = _Window->GetTitle();
 
         m_GraphicsCommandBuffer.resize(m_VkSwapchain.GetImagesCount());
@@ -621,10 +630,9 @@ namespace Vega
                 .commandBufferCount = 1,
             };
 
-            VK_CHECK(vkAllocateCommandBuffers(m_VkDeviceWrapper.GetLogicalDevice(), &commandBufferAllocateInfo,
-                                              &m_GraphicsCommandBuffer[i]));
+            VK_CHECK(vkAllocateCommandBuffers(logicalDevice, &commandBufferAllocateInfo, &m_GraphicsCommandBuffer[i]));
 
-            VK_SET_DEBUG_OBJECT_NAME(m_VkContext.PfnSetDebugUtilsObjectNameEXT, m_VkDeviceWrapper.GetLogicalDevice(),
+            VK_SET_DEBUG_OBJECT_NAME(m_VkContext.PfnSetDebugUtilsObjectNameEXT, logicalDevice,
                                      VK_OBJECT_TYPE_COMMAND_BUFFER, m_GraphicsCommandBuffer[i],
                                      std::format("{}_command_buffer_{}", windowTitle, i).c_str());
         }
@@ -925,6 +933,21 @@ namespace Vega
         shader->Initialize();
 
         return shader;
+    }
+
+    Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, const TextureProps& _Props)
+    {
+        Ref<VulkanTexture> texture = CreateRef<VulkanTexture>();
+        texture->Create(_Name, _Props);
+
+        return texture;
+    }
+
+    Ref<FrameBuffer> VulkanRendererBackend::CreateFrameBuffer(const FrameBufferProps& _Props)
+    {
+        Ref<VulkanFrameBuffer> frameBuffer = CreateRef<VulkanFrameBuffer>(_Props);
+
+        return frameBuffer;
     }
 
     Ref<VulkanTexture> VulkanRendererBackend::GetCurrentColorTexture() const

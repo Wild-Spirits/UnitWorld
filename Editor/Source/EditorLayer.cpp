@@ -5,6 +5,7 @@
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
 #include "Vega/Renderer/RendererBackend.hpp"
 #include "Vega/Renderer/Shader.hpp"
+#include "Vega/Renderer/Texture.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -13,6 +14,26 @@ namespace Vega
 
     void EditorLayer::OnAttach(Ref<EventManager> _EventManager)
     {
+        Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
+        Ref<Window> window = Application::Get().GetWindow();
+
+        // size_t imagesCount = rendererBackend->GetSwapchainColorTextures().size();
+
+        // for (size_t i = 0; i < imagesCount; ++i)
+        // {
+        //     Ref<Texture> texture =
+        //         rendererBackend->CreateTexture(std::format("TestImg_{}", i), {
+        //                                                                          .Width = window->GetWidth(),
+        //                                                                          .Height = window->GetHeight(),
+        //                                                                          .ChannelCount = 4,
+        //                                                                      });
+
+        //     m_ColorBuffers.push_back(texture);
+        // }
+
+        m_FrameBuffer =
+            rendererBackend->CreateFrameBuffer({ .Name = "TestFB", .IsUsedInFlight = true, .IsUsedForGui = true });
+
         m_Shader = Application::Get().GetRendererBackend()->CreateShader(
             ShaderConfig {
                 .Name = "EditorLayerTestShader",
@@ -27,6 +48,8 @@ namespace Vega
               } });
     }
 
+    void EditorLayer::OnDetach() { m_Shader->Shutdown(); }
+
     void EditorLayer::OnUpdate() { }
 
     void EditorLayer::OnRender()
@@ -34,10 +57,10 @@ namespace Vega
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
         Ref<Window> window = Application::Get().GetWindow();
 
+        m_FrameBuffer->Bind();
         // 1. Begin rendering
         rendererBackend->BeginRendering({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() },
-                                        { rendererBackend->GetSwapchainColorTextures() },
-                                        std::vector<std::vector<Ref<Texture>>>());
+                                        { m_FrameBuffer->GetTextures() }, std::vector<std::vector<Ref<Texture>>>());
 
         rendererBackend->SetActiveViewport({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() });
 
@@ -48,6 +71,8 @@ namespace Vega
 
         // 3. End Rendering
         rendererBackend->EndRendering();
+
+        m_FrameBuffer->TransitToGui();
     }
 
     void EditorLayer::OnGuiRender()
@@ -110,6 +135,7 @@ namespace Vega
 
         if (ImGui::Begin("Viewport", 0))
         {
+            ImGui::Image((ImTextureID)m_FrameBuffer->GetInGuiRenderId(), { 800.0f, 600.0f });
         }
         ImGui::End();
 

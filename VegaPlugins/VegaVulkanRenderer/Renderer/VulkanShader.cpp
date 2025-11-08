@@ -46,6 +46,7 @@ namespace Vega
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
         VulkanDeviceWrapper deviceWrapper = rendererBackend->GetVkDeviceWrapper();
+        VkDevice logicalDevice = deviceWrapper.GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
 
         size_t imageCount = rendererBackend->GetVkSwapchain().GetImagesCount();
@@ -84,8 +85,7 @@ namespace Vega
         poolInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 #endif
 
-        VkResult createPoolResult =
-            vkCreateDescriptorPool(deviceWrapper.GetLogicalDevice(), &poolInfo, vkAllocator, &m_DescriptorPool);
+        VkResult createPoolResult = vkCreateDescriptorPool(logicalDevice, &poolInfo, vkAllocator, &m_DescriptorPool);
         if (!VulkanResultIsSuccess(createPoolResult))
         {
             VEGA_CORE_CRITICAL("Failed to create descriptor pool: {}", VulkanResultString(createPoolResult, true));
@@ -102,8 +102,8 @@ namespace Vega
                 .pBindings = m_DescriptorSets[i].Bindings.data(),
             };
 
-            VkResult createLayoutResult = vkCreateDescriptorSetLayout(deviceWrapper.GetLogicalDevice(), &layoutInfo,
-                                                                      vkAllocator, &m_DescriptorSetLayouts[i]);
+            VkResult createLayoutResult =
+                vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, vkAllocator, &m_DescriptorSetLayouts[i]);
 
             if (!VulkanResultIsSuccess(createLayoutResult))
             {
@@ -193,6 +193,51 @@ namespace Vega
         // TODO: Continue here : implement ubo
     }
 
+    void VulkanShader::Shutdown()
+    {
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
+        const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
+
+        for (size_t i = 0; i < m_DescriptorSets.size(); ++i)
+        {
+            vkDestroyDescriptorSetLayout(logicalDevice, m_DescriptorSetLayouts[i], vkAllocator);
+        }
+        m_DescriptorSets.clear();
+        m_DescriptorSetLayouts.clear();
+
+        // TODO: clear gloabal descriptor sets ?
+
+        if (m_DescriptorPool)
+        {
+            vkDestroyDescriptorPool(logicalDevice, m_DescriptorPool, vkAllocator);
+        }
+
+        m_InstanceStates.clear();
+
+        // TODO: clear Uniform buffer
+
+        vkDeviceWaitIdle(logicalDevice);
+
+        for (VulkanPipeline& pipeline : m_Pipelines)
+        {
+            DestroyGraphicsPipeline(pipeline);
+        }
+        for (VulkanPipeline& pipeline : m_WireframesPipelines)
+        {
+            DestroyGraphicsPipeline(pipeline);
+        }
+        m_Pipelines.clear();
+        m_WireframesPipelines.clear();
+
+        for (VulkanShaderStage& stage : m_ShaderStages)
+        {
+            vkDestroyShaderModule(logicalDevice, stage.Handle, vkAllocator);
+        }
+
+        m_ShaderStages.clear();
+    }
+
     bool VulkanShader::Bind()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
@@ -230,13 +275,16 @@ namespace Vega
             m_ShaderConfig.InstanceUniformCount > 0 || m_ShaderConfig.InstanceUniformSamplerCount > 0;
 
         m_DescriptorSets.reserve(2);
+        m_DescriptorSetLayouts.reserve(2);
         if (isHasGlobalDescriptorSet)
         {
             m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
+            m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
         }
         if (isHasInstanceDescriptorSet)
         {
             m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
+            m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
         }
 
         uint32_t imageCount = static_cast<uint32_t>(rendererBackend->GetVkSwapchain().GetImagesCount());
@@ -440,12 +488,12 @@ namespace Vega
                 .StencilAttachmentFormat = isDepthOrStencilFlagSet ? depthFormat : VK_FORMAT_UNDEFINED,
             };
 
-            bool pipelineResult = CreateGraphicsPipline(pipelineConfig, newPipelines[i]);
+            bool pipelineResult = CreateGraphicsPipeline(pipelineConfig, newPipelines[i]);
 
             if (pipelineResult && isNeedWireframe)
             {
                 pipelineConfig.Flags |= ShaderFlagBits::kWireframe;
-                pipelineResult = CreateGraphicsPipline(pipelineConfig, newWireframePipelines[i]);
+                pipelineResult = CreateGraphicsPipeline(pipelineConfig, newWireframePipelines[i]);
             }
 
             if (!pipelineResult)
@@ -460,11 +508,11 @@ namespace Vega
         {
             for (VulkanPipeline& pipeline : newPipelines)
             {
-                DestroyGraphicsPipline(pipeline);
+                DestroyGraphicsPipeline(pipeline);
             }
             for (VulkanPipeline& pipeline : newWireframePipelines)
             {
-                DestroyGraphicsPipline(pipeline);
+                DestroyGraphicsPipeline(pipeline);
             }
             for (VulkanShaderStage& stage : newStages)
             {
@@ -478,13 +526,13 @@ namespace Vega
 
         for (VulkanPipeline& pipeline : m_Pipelines)
         {
-            DestroyGraphicsPipline(pipeline);
+            DestroyGraphicsPipeline(pipeline);
         }
         m_Pipelines = std::move(newPipelines);
 
         for (VulkanPipeline& pipeline : m_WireframesPipelines)
         {
-            DestroyGraphicsPipline(pipeline);
+            DestroyGraphicsPipeline(pipeline);
         }
         m_WireframesPipelines = std::move(newWireframePipelines);
 
@@ -551,7 +599,7 @@ namespace Vega
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     }
 
-    bool VulkanShader::CreateGraphicsPipline(const VulkanPiplineConfig& _PipelineConfig, VulkanPipeline& _OutPipeline)
+    bool VulkanShader::CreateGraphicsPipeline(const VulkanPiplineConfig& _PipelineConfig, VulkanPipeline& _OutPipeline)
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
@@ -681,9 +729,7 @@ namespace Vega
 
         VkPipelineVertexInputStateCreateInfo vertextInputCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-            .vertexBindingDescriptionCount = 0,
-            // TODO!: set back to 1
-            // .vertexBindingDescriptionCount = 1,
+            .vertexBindingDescriptionCount = _PipelineConfig.Attributes.size() > 0 ? 1u : 0u,
             .pVertexBindingDescriptions = &bindingDescription,
             .vertexAttributeDescriptionCount = static_cast<uint32_t>(_PipelineConfig.Attributes.size()),
             .pVertexAttributeDescriptions = _PipelineConfig.Attributes.data(),
@@ -698,9 +744,9 @@ namespace Vega
         std::vector<VkPushConstantRange> pushConstantRanges;
         if (_PipelineConfig.PushConstantRanges.size() > 32)
         {
-            VEGA_CORE_ERROR(
-                "VulkanShader::CreateGraphicsPipline: cannot have more than 32 push constant ranges. Passed count: {}",
-                _PipelineConfig.PushConstantRanges.size());
+            VEGA_CORE_ERROR("VulkanShader::CreateGraphicsPipeline: cannot have more than 32 push constant ranges. "
+                            "Passed count: {}",
+                            _PipelineConfig.PushConstantRanges.size());
             return false;
         }
         for (const Range& range : _PipelineConfig.PushConstantRanges)
@@ -777,10 +823,23 @@ namespace Vega
         return true;
     }
 
-    bool VulkanShader::DestroyGraphicsPipline(VulkanPipeline& _OutPipeline)
+    bool VulkanShader::DestroyGraphicsPipeline(VulkanPipeline& _Pipeline)
     {
-        // ! Important
-        // TODO: implement
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
+        const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
+
+        if (_Pipeline.Handle)
+        {
+            vkDestroyPipeline(logicalDevice, _Pipeline.Handle, vkAllocator);
+            _Pipeline.Handle = VK_NULL_HANDLE;
+        }
+
+        if (_Pipeline.Layout)
+        {
+            vkDestroyPipelineLayout(logicalDevice, _Pipeline.Layout, vkAllocator);
+            _Pipeline.Layout = VK_NULL_HANDLE;
+        }
 
         return true;
     }

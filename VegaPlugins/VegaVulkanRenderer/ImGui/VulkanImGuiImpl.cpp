@@ -28,8 +28,7 @@ namespace Vega
 
     void VulkanImGuiImpl::Init()
     {
-        Application& app = Application::Get();
-        Ref<VulkanRendererBackend> rendererBackend = app.GetCastedRendererBackend<VulkanRendererBackend>();
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
         const VulkanContext& context = rendererBackend->GetVkContext();
         const VulkanDeviceWrapper& vkDeviceWrapper = rendererBackend->GetVkDeviceWrapper();
         const VulkanSwapchain& vkSwapchain = rendererBackend->GetVkSwapchain();
@@ -78,7 +77,7 @@ namespace Vega
     {
         Application& app = Application::Get();
         Ref<Window> window = app.GetWindow();
-        Ref<VulkanRendererBackend> rendererBackend = app.GetCastedRendererBackend<VulkanRendererBackend>();
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
         std::vector<std::vector<Ref<VulkanTexture>>> swapchainTextures = {
             rendererBackend->GetVkSwapchain().GetVulkanColorTextures()
@@ -95,8 +94,7 @@ namespace Vega
         // const bool mainIsMnimized = (mainDrawData->DisplaySize.x <= 0.0f || mainDrawData->DisplaySize.y <= 0.0f);
         // if (!mainIsMnimized)
         // {
-        Application& app = Application::Get();
-        Ref<VulkanRendererBackend> rendererBackend = app.GetCastedRendererBackend<VulkanRendererBackend>();
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
         VkCommandBuffer commandBuffer = rendererBackend->GetCurrentGraphicsCommandBuffer();
 
         ImGui_ImplVulkan_RenderDrawData(mainDrawData, commandBuffer);
@@ -109,8 +107,7 @@ namespace Vega
 
     void VulkanImGuiImpl::Shutdown()
     {
-        Application& app = Application::Get();
-        Ref<VulkanRendererBackend> rendererBackend = app.GetCastedRendererBackend<VulkanRendererBackend>();
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
         VK_CHECK(vkDeviceWaitIdle(rendererBackend->GetVkDeviceWrapper().GetLogicalDevice()));
 

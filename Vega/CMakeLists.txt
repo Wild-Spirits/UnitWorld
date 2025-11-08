@@ -21,6 +21,7 @@ set(SOURCES
     Source/Vega/Renderer/RendererBackendTypes.hpp
     Source/Vega/Renderer/RendererBackendApi.hpp
     Source/Vega/Renderer/Texture.hpp
+    Source/Vega/Renderer/FrameBuffer.hpp
     Source/Vega/Renderer/Shader.hpp                                         Source/Vega/Renderer/Shader.cpp
 
     # Source/Vega/Buffers/BufferLayout.h

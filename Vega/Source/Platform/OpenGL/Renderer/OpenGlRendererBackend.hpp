@@ -36,11 +36,18 @@ namespace Vega
 
         Ref<ImGuiImpl> CreateImGuiImpl() override;
 
+        // TODO: implement
         Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                  const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override
         {
             return nullptr;
         }
+
+        // TODO: implement
+        Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override { return nullptr; }
+
+        // TODO: implement
+        Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override { return nullptr; }
     };
 
 }    // namespace Vega

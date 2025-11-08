@@ -256,7 +256,9 @@ namespace Vega
             case 1: return VK_FORMAT_R8_UNORM;
             case 2: return VK_FORMAT_R8G8_UNORM;
             case 3: return VK_FORMAT_R8G8B8_UNORM;
-            case 4: return VK_FORMAT_R8G8B8A8_UNORM;
+            case 4:
+                return VK_FORMAT_B8G8R8A8_UNORM;
+                // case 4: return VK_FORMAT_R8G8B8A8_UNORM;
         }
 
         VEGA_CORE_ASSERT(false, "ChannelsCountToVkFormat: Unknown ChannelCount!")

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FrameBuffer.hpp"
 #include "Shader.hpp"
 #include "Texture.hpp"
 #include "Vega/Core/Base.hpp"
@@ -78,8 +79,10 @@ namespace Vega
 
         virtual Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                          const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) = 0;
-        // virtual Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props) = 0;
+        virtual Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) = 0;
         // virtual Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t _Data) = 0;
+
+        virtual Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) = 0;
 
         virtual Ref<ImGuiImpl> CreateImGuiImpl() = 0;
 

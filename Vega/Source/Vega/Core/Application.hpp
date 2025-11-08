@@ -59,11 +59,11 @@ namespace Vega
 
         const Ref<RendererBackend> GetRendererBackend() const { return m_RendererBackend; }
 
-        template <typename T>
-        const Ref<T> GetCastedRendererBackend() const
-        {
-            return std::dynamic_pointer_cast<T>(m_RendererBackend);
-        }
+        // template <typename T>
+        // const Ref<T> GetCastedRendererBackend() const
+        // {
+        //     return std::dynamic_pointer_cast<T>(m_RendererBackend);
+        // }
 
     private:
         void Run();

@@ -9,6 +9,8 @@ namespace Vega
     bool VulkanSwapchain::Create(const VulkanContext& _VkContex, const VulkanDeviceWrapper& _VkDeviceWrapper,
                                  RendererBackendConfig::Flags _RendererFlags, VkSurfaceKHR _VkSurface)
     {
+        VkDevice logicalDevice = _VkDeviceWrapper.GetLogicalDevice();
+
         Ref<Window> window = Application::Get().GetWindow();
         VkExtent2D swapchainExtent = { window->GetWidth(), window->GetHeight() };
 
@@ -132,8 +134,8 @@ namespace Vega
             swapchainCreateInfo.pQueueFamilyIndices = nullptr;
         }
 
-        VkResult swapchainResult = vkCreateSwapchainKHR(_VkDeviceWrapper.GetLogicalDevice(), &swapchainCreateInfo,
-                                                        _VkContex.VkAllocator, &m_VkSwapchain);
+        VkResult swapchainResult =
+            vkCreateSwapchainKHR(logicalDevice, &swapchainCreateInfo, _VkContex.VkAllocator, &m_VkSwapchain);
         if (!VulkanResultIsSuccess(swapchainResult))
         {
             VEGA_CORE_CRITICAL("Failed to create Vulkan swapchain with the error: {}.",
@@ -143,8 +145,7 @@ namespace Vega
         }
 
         imageCount = 0;
-        VkResult getImageResult =
-            vkGetSwapchainImagesKHR(_VkDeviceWrapper.GetLogicalDevice(), m_VkSwapchain, &imageCount, nullptr);
+        VkResult getImageResult = vkGetSwapchainImagesKHR(logicalDevice, m_VkSwapchain, &imageCount, nullptr);
         if (!VulkanResultIsSuccess(getImageResult))
         {
             VEGA_CORE_CRITICAL("Failed to obtain image count from Vulkan swapchain with the error: {}.",
@@ -155,8 +156,7 @@ namespace Vega
         }
 
         m_SwapchainImages.resize(imageCount);
-        getImageResult = vkGetSwapchainImagesKHR(_VkDeviceWrapper.GetLogicalDevice(), m_VkSwapchain, &imageCount,
-                                                 m_SwapchainImages.data());
+        getImageResult = vkGetSwapchainImagesKHR(logicalDevice, m_VkSwapchain, &imageCount, m_SwapchainImages.data());
         if (!VulkanResultIsSuccess(getImageResult))
         {
             VEGA_CORE_CRITICAL("Failed to obtain image count from Vulkan swapchain with the error: {}.",
@@ -198,15 +198,16 @@ namespace Vega
 
     void VulkanSwapchain::Destroy(const VulkanContext& _VkContex, const VulkanDeviceWrapper& _VkDeviceWrapper)
     {
-        vkDeviceWaitIdle(_VkDeviceWrapper.GetLogicalDevice());
+        VkDevice logicalDevice = _VkDeviceWrapper.GetLogicalDevice();
+
+        vkDeviceWaitIdle(logicalDevice);
 
         for (auto& texture : m_VulkanColorBufferTextures)
         {
-            vkDestroyImageView(_VkDeviceWrapper.GetLogicalDevice(), texture->GetTextureVkImageView(),
-                               _VkContex.VkAllocator);
+            vkDestroyImageView(logicalDevice, texture->GetTextureVkImageView(), _VkContex.VkAllocator);
         }
 
-        vkDestroySwapchainKHR(_VkDeviceWrapper.GetLogicalDevice(), m_VkSwapchain, _VkContex.VkAllocator);
+        vkDestroySwapchainKHR(logicalDevice, m_VkSwapchain, _VkContex.VkAllocator);
     }
 
 }    // namespace Vega

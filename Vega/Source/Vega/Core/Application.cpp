@@ -103,15 +103,15 @@ namespace Vega
                             layer->OnRender();
                         }
 
-                        // if (m_GuiLayer)
-                        // {
-                        //     m_GuiLayer->BeginGuiFrame();
-                        //     for (Ref<Layer> layer : m_LayerStack)
-                        //     {
-                        //         layer->OnGuiRender();
-                        //     }
-                        //     m_GuiLayer->EndGuiFrame();
-                        // }
+                        if (m_GuiLayer)
+                        {
+                            m_GuiLayer->BeginGuiFrame();
+                            for (Ref<Layer> layer : m_LayerStack)
+                            {
+                                layer->OnGuiRender();
+                            }
+                            m_GuiLayer->EndGuiFrame();
+                        }
 
                         // TODO: Use rendergraph here
                         m_RendererBackend->TmpRendergraphExecute();

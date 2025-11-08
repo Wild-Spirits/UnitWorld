@@ -15,9 +15,9 @@ namespace Vega
     public:
         App(const ApplicationProps& _Props) : Application(_Props)
         {
-            PushLayer(CreateRef<EditorLayer>());
             m_GuiLayer = CreateRef<ImGuiLayer>();
             PushOverlay(m_GuiLayer);
+            PushLayer(CreateRef<EditorLayer>());
         }
     };
 
