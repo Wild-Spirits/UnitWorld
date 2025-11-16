@@ -1,12 +1,9 @@
 #include "ImGuiLayer.hpp"
 
-#include <fstream>
-
 #include <imgui.h>
 #include <imgui_internal.h>
 
 #include "Vega/Core/Application.hpp"
-#include "Vega/Core/Inputs.hpp"
 #include "Vega/Events/EventDispatcher.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
@@ -44,13 +41,14 @@ namespace Vega
 
         // TODO: ImGuiConfigFlags_ViewportsEnable
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;    // Enable Multi-Viewport / Platform Windows
+        io.ConfigDpiScaleFonts = true;
 
         // io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoTaskBarIcons;
         // io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoMerge;
 
 #if USE_CUSTOM_FONT
 
-        SetFontSizeByMonitorScale(app.GetWindow()->GetMonitorScale());
+        SetFontSize();
         m_ChangeSize = true;
         ChangeFontSize(false);
 
@@ -94,22 +92,6 @@ namespace Vega
 
         ImGui::DestroyContext();
     }
-
-    // void ImGuiLayer::OnEvent(Event& e)
-    //{
-    //     EventDispatcher dispatcher(e);
-    //     dispatcher.Dispatch<WindowMonitorScaleChangedEvent>([&](WindowMonitorScaleChangedEvent& event) {
-    //         SetFontSizeByMonitorScale(event.GetScale());
-    //         m_ChangeSize = true;
-    //         return false;
-    //     });
-    //     if (m_BlockEvents)
-    //     {
-    //         ImGuiIO& io = ImGui::GetIO();
-    //         e.Handled |= e.IsInCategory(EventCategoryMouse) & io.WantCaptureMouse;
-    //         e.Handled |= e.IsInCategory(EventCategoryKeyboard) & io.WantCaptureKeyboard;
-    //     }
-    // }
 
     void ImGuiLayer::OnUpdate() { }
 

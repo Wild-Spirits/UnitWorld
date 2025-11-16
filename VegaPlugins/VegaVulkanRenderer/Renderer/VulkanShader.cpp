@@ -32,10 +32,6 @@ namespace Vega
     void VulkanShader::Create(const ShaderConfig& _ShaderConfig,
                               const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs)
     {
-        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
-        const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
-
         m_ShaderConfig = _ShaderConfig;
         m_ShaderStageConfigs = _ShaderStageConfigs;
 
@@ -48,8 +44,6 @@ namespace Vega
         VulkanDeviceWrapper deviceWrapper = rendererBackend->GetVkDeviceWrapper();
         VkDevice logicalDevice = deviceWrapper.GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
-
-        size_t imageCount = rendererBackend->GetVkSwapchain().GetImagesCount();
 
         bool isNeedWireframe = (m_ShaderConfig.Flags & ShaderFlagBits::kWireframe) != 0;
         if (deviceWrapper.GetPhysicalDeviceFeatures().fillModeNonSolid)

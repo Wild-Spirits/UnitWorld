@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Vega/Renderer/FrameBuffer.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
 
 namespace Vega
@@ -21,9 +22,8 @@ namespace Vega
 
         bool FramePrepareWindowSurface() override;
         void FrameCommandListBegin() override;
-        void BeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
-                            std::vector<std::vector<Ref<Texture>>> _ColorTargets,
-                            std::vector<std::vector<Ref<Texture>>> _DepthStencilTargets) override
+        void BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
+                            Ref<FrameBuffer> _FrameBuffer) override
         { }
         void EndRendering() override { }
         void FrameCommandListEnd() override;

@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Vega/Events/KeyEvent.hpp"
-#include "Vega/Events/MouseEvent.hpp"
-#include "Vega/Events/WindowEvent.hpp"
 #include "Vega/ImGui/ImGuiImpl.hpp"
 #include "Vega/Layers/GuiLayer.hpp"
 
@@ -36,7 +33,7 @@ namespace Vega
 
         void ChangeFontSize(bool _NeedUpdateFontTexture);
 
-        void SetFontSizeByMonitorScale(float _MonitorScale) { m_FontSize = static_cast<int>(14.0f * _MonitorScale); }
+        void SetFontSize(int _FontSize = 14) { m_FontSize = _FontSize; }
 
     private:
         Ref<ImGuiImpl> m_ImGuiImpl;

@@ -3,7 +3,6 @@
 #include "Vega/Layers/Layer.hpp"
 #include "Vega/Renderer/FrameBuffer.hpp"
 #include "Vega/Renderer/Shader.hpp"
-#include "Vega/Renderer/Texture.hpp"
 
 namespace Vega
 {
@@ -25,6 +24,9 @@ namespace Vega
         Ref<Shader> m_Shader;
         // std::vector<Ref<Texture>> m_ColorBuffers;
         Ref<FrameBuffer> m_FrameBuffer;
+
+        glm::u32vec2 m_ViewportDimensions;
+        size_t m_FramesToSkip = 0;
     };
 
 }    // namespace Vega

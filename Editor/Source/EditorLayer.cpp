@@ -5,7 +5,7 @@
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
 #include "Vega/Renderer/RendererBackend.hpp"
 #include "Vega/Renderer/Shader.hpp"
-#include "Vega/Renderer/Texture.hpp"
+#include "glm/fwd.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -17,22 +17,17 @@ namespace Vega
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
         Ref<Window> window = Application::Get().GetWindow();
 
-        // size_t imagesCount = rendererBackend->GetSwapchainColorTextures().size();
+        m_ViewportDimensions = { window->GetWidth(), window->GetHeight() };
 
-        // for (size_t i = 0; i < imagesCount; ++i)
-        // {
-        //     Ref<Texture> texture =
-        //         rendererBackend->CreateTexture(std::format("TestImg_{}", i), {
-        //                                                                          .Width = window->GetWidth(),
-        //                                                                          .Height = window->GetHeight(),
-        //                                                                          .ChannelCount = 4,
-        //                                                                      });
+        m_FrameBuffer = rendererBackend->CreateFrameBuffer({
+            .Name = "TestFB",
+            .Width = m_ViewportDimensions.x,
+            .Height = m_ViewportDimensions.y,
+            .IsUsedInFlight = true,
+            .IsUsedForGui = true,
+        });
 
-        //     m_ColorBuffers.push_back(texture);
-        // }
-
-        m_FrameBuffer =
-            rendererBackend->CreateFrameBuffer({ .Name = "TestFB", .IsUsedInFlight = true, .IsUsedForGui = true });
+        // m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
 
         m_Shader = Application::Get().GetRendererBackend()->CreateShader(
             ShaderConfig {
@@ -48,9 +43,21 @@ namespace Vega
               } });
     }
 
-    void EditorLayer::OnDetach() { m_Shader->Shutdown(); }
+    void EditorLayer::OnDetach()
+    {
+        m_Shader->Shutdown();
+        m_FrameBuffer->Destroy();
+    }
 
-    void EditorLayer::OnUpdate() { }
+    void EditorLayer::OnUpdate()
+    {
+        if (m_FrameBuffer->GetWidth() != m_ViewportDimensions.x || m_FrameBuffer->GetHeight() != m_ViewportDimensions.y)
+        {
+            m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
+            // TODO: Try to make it better (without frame skipping)
+            m_FramesToSkip = Application::Get().GetRendererBackend()->GetSwapchainColorTextures().size() * 2;
+        }
+    }
 
     void EditorLayer::OnRender()
     {
@@ -58,18 +65,16 @@ namespace Vega
         Ref<Window> window = Application::Get().GetWindow();
 
         m_FrameBuffer->Bind();
-        // 1. Begin rendering
-        rendererBackend->BeginRendering({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() },
-                                        { m_FrameBuffer->GetTextures() }, std::vector<std::vector<Ref<Texture>>>());
 
-        rendererBackend->SetActiveViewport({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() });
+        rendererBackend->BeginRendering({ 0.0f, 0.0f }, { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() },
+                                        m_FrameBuffer);
 
-        // 2. Shader
+        rendererBackend->SetActiveViewport({ 0.0f, 0.0f }, { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() });
+
         m_Shader->Bind();
 
         rendererBackend->TestFoo();
 
-        // 3. End Rendering
         rendererBackend->EndRendering();
 
         m_FrameBuffer->TransitToGui();
@@ -135,7 +140,20 @@ namespace Vega
 
         if (ImGui::Begin("Viewport", 0))
         {
-            ImGui::Image((ImTextureID)m_FrameBuffer->GetInGuiRenderId(), { 800.0f, 600.0f });
+            ImVec2 viewportDimensions = ImGui::GetContentRegionAvail();
+
+            if (m_FramesToSkip == 0)
+            {
+                ImGui::Image((ImTextureID)m_FrameBuffer->GetInGuiRenderId(), viewportDimensions);
+            }
+            else
+            {
+                --m_FramesToSkip;
+            }
+            m_ViewportDimensions = {
+                static_cast<uint32_t>(viewportDimensions.x),
+                static_cast<uint32_t>(viewportDimensions.y),
+            };
         }
         ImGui::End();
 

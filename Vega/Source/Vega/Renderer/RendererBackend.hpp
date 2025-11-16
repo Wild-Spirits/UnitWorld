@@ -53,10 +53,8 @@ namespace Vega
         virtual bool FramePrepareWindowSurface() = 0;
         virtual void FrameCommandListBegin() = 0;
 
-        // TODO: add color and depth/stencil attachments in other way ?
-        virtual void BeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
-                                    std::vector<std::vector<Ref<Texture>>> _ColorTargets,
-                                    std::vector<std::vector<Ref<Texture>>> _DepthStencilTargets) = 0;
+        virtual void BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
+                                    Ref<FrameBuffer> _FrameBuffer) = 0;
         virtual void TestFoo() {};
 
         virtual void EndRendering() = 0;

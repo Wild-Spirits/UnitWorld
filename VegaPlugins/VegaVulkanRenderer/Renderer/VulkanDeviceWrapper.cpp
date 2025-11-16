@@ -136,6 +136,7 @@ namespace Vega
         std::vector<const char*> extensionNames;
         extensionNames.reserve(8);
         extensionNames.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        extensionNames.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 
         if (portabilityRequired)
         {
@@ -163,9 +164,14 @@ namespace Vega
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
                 .descriptorBindingPartiallyBound = VK_TRUE,    // TODO: Check if supported?
             };
+            VkPhysicalDeviceSynchronization2Features sync2Features = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+                .pNext = &descriptorIndexingFeatures,
+                .synchronization2 = VK_TRUE,
+            };
             VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStateFeatures = {
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
-                .pNext = &descriptorIndexingFeatures,
+                .pNext = &sync2Features,
                 .extendedDynamicState = VK_TRUE,
             };
             VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingExt = {

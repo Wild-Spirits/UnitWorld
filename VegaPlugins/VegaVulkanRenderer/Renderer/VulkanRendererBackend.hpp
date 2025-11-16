@@ -70,19 +70,19 @@ namespace Vega
         VkCommandBuffer GetCurrentGraphicsCommandBuffer() const;
 
         uint32_t GetCurrentImageIndex() const { return m_ImageIndex; }
+        uint32_t GetCurrentFrameIndex() const { return m_CurrentFrame; }
 
         // TODO: add color and depth/stencil attachments in other way ?
-        void BeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
-                            std::vector<std::vector<Ref<Texture>>> _ColorTargets,
-                            std::vector<std::vector<Ref<Texture>>> _DepthStencilTargets) override;
+        void BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
+                            Ref<FrameBuffer> _FrameBuffer) override;
 
         void TestFoo() override;
 
         void EndRendering() override;
 
-        void VulkanBeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
-                                  std::vector<std::vector<Ref<VulkanTexture>>> _ColorTargets,
-                                  std::vector<std::vector<Ref<VulkanTexture>>> _DepthStencilTargets);
+        void VulkanBeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
+                                  const std::vector<std::vector<Ref<VulkanTexture>>>& _ColorTargets = {},
+                                  const std::vector<std::vector<Ref<VulkanTexture>>>& _DepthStencilTargets = {});
         void VulkanEndRendering();
 
         std::vector<Ref<Texture>> GetSwapchainColorTextures() override { return m_VkSwapchain.GetColorTextures(); }

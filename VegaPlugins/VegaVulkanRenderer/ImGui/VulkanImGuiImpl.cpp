@@ -59,19 +59,21 @@ namespace Vega
             .DescriptorPool = rendererBackend->GetImGuiDescriptorPool(),
             .MinImageCount = swapchainSupportInfo.Capabilities.minImageCount,
             .ImageCount = static_cast<uint32_t>(vkSwapchain.GetImagesCount()),
-            .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+            .PipelineInfoMain = {
+                .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+                .PipelineRenderingCreateInfo = pipelineRenderingCreateInfo,
+            },
             .UseDynamicRendering = true,
+            .Allocator = context.VkAllocator,
             .CheckVkResultFn = check_vk_result,
-        };
+    };
 
-        initInfo.PipelineRenderingCreateInfo = pipelineRenderingCreateInfo;
-        initInfo.Allocator = context.VkAllocator;
-        // initInfo.CheckVkResultFn = check_vk_result;
+        // initInfo.PipelineRenderingCreateInfo = pipelineRenderingCreateInfo;
         ImGui_ImplVulkan_Init(&initInfo);
-        ImGui_ImplVulkan_CreateFontsTexture();
+        // ImGui_ImplVulkan_CreateFontsTexture();
 
         VEGA_CORE_INFO("Vulkan ImGui initialized.");
-    }
+    }    // namespace Vega
 
     void VulkanImGuiImpl::NewFrame()
     {
@@ -83,7 +85,7 @@ namespace Vega
             rendererBackend->GetVkSwapchain().GetVulkanColorTextures()
         };
         rendererBackend->VulkanBeginRendering({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() },
-                                              swapchainTextures, std::vector<std::vector<Ref<VulkanTexture>>>());
+                                              swapchainTextures, {});
 
         ImGui_ImplVulkan_NewFrame();
     }

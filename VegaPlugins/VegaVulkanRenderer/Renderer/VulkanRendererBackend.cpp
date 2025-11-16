@@ -8,6 +8,7 @@
 #include "VulkanFrameBuffer.hpp"
 #include "VulkanShader.hpp"
 #include "VulkanTexture.hpp"
+#include <memory>
 #include <vulkan/vulkan_core.h>
 
 #ifdef VEGA_PLATFORM_DESKTOP
@@ -38,9 +39,6 @@ namespace Vega
 #ifdef VEGA_PLATFORM_DESKTOP
         glfwInit();
 #endif
-
-        uint32_t h = Application::Get().GetWindow()->GetHeight();
-        uint32_t w = Application::Get().GetWindow()->GetWidth();
 
         m_VkContext.VkAllocator = nullptr;
 
@@ -350,6 +348,7 @@ namespace Vega
 
             if (!RecreateSwapchain())
             {
+                VEGA_CORE_TRACE("Failed to recreate swapchain!");
                 // VEGA_CORE_ASSERT(false, "Failed to recreate swapchain!");
                 return false;
             }
@@ -754,15 +753,15 @@ namespace Vega
 
     VkCommandBuffer VulkanRendererBackend::GetCurrentGraphicsCommandBuffer() const
     {
-        return m_GraphicsCommandBuffer[m_ImageIndex];
+        return m_GraphicsCommandBuffer[m_CurrentFrame];
     }
 
-    void VulkanRendererBackend::BeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
-                                               std::vector<std::vector<Ref<Texture>>> _ColorTargets,
-                                               std::vector<std::vector<Ref<Texture>>> _DepthStencilTargets)
+    void VulkanRendererBackend::BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
+                                               Ref<FrameBuffer> _FrameBuffer)
     {
-        VulkanBeginRendering(_ViewportOffset, _ViewportSize, CastAttachmentsTo<VulkanTexture>(_ColorTargets),
-                             CastAttachmentsTo<VulkanTexture>(_DepthStencilTargets));
+        Ref<VulkanFrameBuffer> vulkanFrameBuffer = StaticRefCast<VulkanFrameBuffer>(_FrameBuffer);
+        VulkanBeginRendering(_ViewportOffset, _ViewportSize, vulkanFrameBuffer->GetVulkanTextures(),
+                             vulkanFrameBuffer->GetVulkanDepthTextures());
     }
 
     void VulkanRendererBackend::TestFoo()
@@ -773,9 +772,10 @@ namespace Vega
 
     void VulkanRendererBackend::EndRendering() { VulkanEndRendering(); }
 
-    void VulkanRendererBackend::VulkanBeginRendering(glm::ivec2 _ViewportOffset, glm::uvec2 _ViewportSize,
-                                                     std::vector<std::vector<Ref<VulkanTexture>>> _ColorTargets,
-                                                     std::vector<std::vector<Ref<VulkanTexture>>> _DepthStencilTargets)
+    void VulkanRendererBackend::VulkanBeginRendering(
+        const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
+        const std::vector<std::vector<Ref<VulkanTexture>>>& _ColorTargets,
+        const std::vector<std::vector<Ref<VulkanTexture>>>& _DepthStencilTargets)
     {
         VkCommandBuffer commandBuffer = GetCurrentGraphicsCommandBuffer();
 
@@ -957,7 +957,7 @@ namespace Vega
 
     void VulkanRendererBackend::CommandBufferReset(VkCommandBuffer _VkCommandBuffer)
     {
-        (void)_VkCommandBuffer;
+        VK_CHECK(vkResetCommandBuffer(_VkCommandBuffer, 0));
         // command_buffer->state = COMMAND_BUFFER_STATE_READY;
     }
 

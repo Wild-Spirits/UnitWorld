@@ -38,8 +38,8 @@ namespace Vega
 
     void OpenGlImGuiImpl::RecreateFontTexture()
     {
-        ImGui_ImplOpenGL3_DestroyFontsTexture();
-        ImGui_ImplOpenGL3_CreateFontsTexture();
+        // ImGui_ImplOpenGL3_DestroyFontsTexture();
+        // ImGui_ImplOpenGL3_CreateFontsTexture();
     }
 
     void OpenGlImGuiImpl::BackupCurrentWindowContext() { GLFWwindow* m_CurrentWindowContext = glfwGetCurrentContext(); }
