@@ -1,5 +1,7 @@
 #include "GLFWWindow.hpp"
 
+#include "Vega/Core/Application.hpp"
+#include "Vega/Core/Base.hpp"
 #include "Vega/Events/KeyEvent.hpp"
 #include "Vega/Events/MouseEvent.hpp"
 #include "Vega/Events/WindowEvent.hpp"
@@ -7,14 +9,228 @@
 
 #include <GLFW/glfw3.h>
 
+#if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #include "GLFW/glfw3native.h"
+
+    #define UNICODE
+    #define _UNICODE
+    #include <Windows.h>
+    #include <Windowsx.h>
+
+#endif
+
 namespace Vega
 {
 
-    bool glfw_get_window_monitor(GLFWmonitor** monitor, GLFWwindow* window);
+#if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
+
+    bool IsWindowMaximizedAlt(HWND hWnd)
+    {
+        WINDOWPLACEMENT wp;
+        wp.length = sizeof(WINDOWPLACEMENT);
+        if (GetWindowPlacement(hWnd, &wp))
+        {
+            return wp.showCmd == SW_MAXIMIZE;
+        }
+        return false;
+    }
+
+    glm::ivec4 calcOffset(GLFWWindow::WindowData& _WindowData, HWND hWnd)
+    {
+
+        if (IsZoomed(hWnd) != 0)
+        {
+            LONG offset = std::lround(8.0f * _WindowData.MonitorScale);
+            return { offset, offset, offset, offset };
+        }
+        else
+        {
+            LONG offset = std::lround(1.0f * _WindowData.MonitorScale);
+            return { 1, offset, offset, offset };
+        }
+    }
+
+    void DrawBorder(GLFWWindow::WindowData& _WindowData, HWND hWnd)
+    {
+        HDC hdc = GetWindowDC(hWnd);
+        RECT rect;
+        GetWindowRect(hWnd, &rect);
+        OffsetRect(&rect, -rect.left, -rect.top);
+
+        HPEN hPen = CreatePen(PS_SOLID, std::lround(2.0f * _WindowData.MonitorScale), RGB(64, 64, 64));
+        HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
+        HBRUSH hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+
+        Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
+
+        SelectObject(hdc, oldPen);
+        SelectObject(hdc, oldBrush);
+        DeleteObject(hPen);
+
+        ReleaseDC(hWnd, hdc);
+    }
+
+    LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    {
+        // if (uMsg != 124 && uMsg != 125)
+        // {
+        //     LOG_CORE_WARN("WindowProc {}", uMsg);
+        // }
+
+        GLFWWindow::WindowData& data =
+            *reinterpret_cast<GLFWWindow::WindowData*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+
+        switch (uMsg)
+        {
+            case WM_NCCALCSIZE: {
+                if (wParam == TRUE && lParam != NULL)
+                {
+                    NCCALCSIZE_PARAMS* pParams = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
+                    glm::ivec4 offset = calcOffset(data, hWnd);
+                    pParams->rgrc[0].top += offset[0];
+                    pParams->rgrc[0].right -= offset[1];
+                    pParams->rgrc[0].bottom -= offset[2];
+                    pParams->rgrc[0].left += offset[3];
+                }
+                return 0;
+            }
+            case WM_NCACTIVATE: return 1;
+            // case WM_ACTIVATE: {
+            //     LRESULT res = DefWindowProc(hWnd, uMsg, wParam, lParam);
+            //     // LONG res = CallWindowProc(original_proc, hWnd, uMsg, wParam, lParam);
+            //     DrawBorder(hWnd);
+            //     return res;
+            // }
+            case WM_NCPAINT: {
+                DrawBorder(data, hWnd);
+                return 0;
+            }
+            case WM_PAINT: {
+
+                PAINTSTRUCT ps;
+                BeginPaint(hWnd, &ps);
+                EndPaint(hWnd, nullptr);
+
+                DrawBorder(data, hWnd);
+                return 0;
+            }
+            case WM_NCHITTEST: {
+                const int borderWidth = 8;
+
+                POINT mousePos = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+
+                RECT windowRect;
+                GetWindowRect(hWnd, &windowRect);
+
+                if (mousePos.y >= windowRect.bottom - borderWidth)
+                {
+                    if (mousePos.x <= windowRect.left + borderWidth)
+                    {
+                        return HTBOTTOMLEFT;
+                    }
+                    else if (mousePos.x >= windowRect.right - borderWidth)
+                    {
+                        return HTBOTTOMRIGHT;
+                    }
+                    else
+                    {
+                        return HTBOTTOM;
+                    }
+                }
+                else if (mousePos.y <= windowRect.top + borderWidth)
+                {
+                    if (mousePos.x <= windowRect.left + borderWidth)
+                    {
+                        return HTTOPLEFT;
+                    }
+                    else if (mousePos.x >= windowRect.right - borderWidth)
+                    {
+                        return HTTOPRIGHT;
+                    }
+                    else
+                    {
+                        return HTTOP;
+                    }
+                }
+                else if (mousePos.x <= windowRect.left + borderWidth)
+                {
+                    return HTLEFT;
+                }
+                else if (mousePos.x >= windowRect.right - borderWidth)
+                {
+                    return HTRIGHT;
+                }
+
+                ScreenToClient(hWnd, &mousePos);
+                if (mousePos.y < Application::Get().GetMainMenuFrameHeight() &&
+                    !Application::Get().GetIsMainMenuAnyItemHovered())
+                {
+                    return HTCAPTION;
+                }
+
+                return HTCLIENT;
+            }
+        }
+
+        // return DefWindowProc(hWnd, uMsg, wParam, lParam);
+        return CallWindowProc(reinterpret_cast<WNDPROC>(data.OriginalProc), hWnd, uMsg, wParam, lParam);
+    }
+
+    void disableTitlebar(GLFWwindow* _Window)
+    {
+        HWND hWnd = glfwGetWin32Window(_Window);
+        GLFWWindow::WindowData& data = *reinterpret_cast<GLFWWindow::WindowData*>(glfwGetWindowUserPointer(_Window));
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&data));
+
+        LONG_PTR lStyle = GetWindowLongPtr(hWnd, GWL_STYLE);
+        lStyle |= WS_THICKFRAME;
+        // lStyle &= ~WS_CAPTION;
+        // lStyle &= ~WS_BORDER;
+        // lStyle &= ~WS_DLGFRAME;
+        SetWindowLongPtr(hWnd, GWL_STYLE, lStyle);
+        // MARGINS margins = {0, 0, 0, 0};
+        // DwmExtendFrameIntoClientArea(hWnd, &margins);
+
+        RECT windowRect;
+        GetWindowRect(hWnd, &windowRect);
+        int width = windowRect.right - windowRect.left;
+        int height = windowRect.bottom - windowRect.top;
+
+        data.OriginalProc = reinterpret_cast<void*>(GetWindowLongPtr(hWnd, GWLP_WNDPROC));
+        data.OriginalProc =
+            reinterpret_cast<void*>(SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WindowProc)));
+        SetWindowPos(hWnd, NULL, 0, 0, width, height, SWP_FRAMECHANGED | SWP_NOMOVE);
+    }
+
+#endif
+
+    bool GlfwGetWindowMonitor(GLFWmonitor** _Monitor, GLFWwindow* _Window);
 
     GLFWWindow::GLFWWindow(const WindowProps& _Props) : m_Data(_Props) { Init(); }
 
     GLFWWindow::~GLFWWindow() { glfwDestroyWindow(m_Window); }
+
+    glm::dvec2 GLFWWindow::GetCursorInWindowPosition() const
+    {
+        double mouseX, mouseY;
+        glfwGetCursorPos(m_Window, &mouseX, &mouseY);
+
+        return { mouseX, mouseY };
+    }
+
+    bool GLFWWindow::IsWindowMaximized() const
+    {
+        int maximized = glfwGetWindowAttrib(m_Window, GLFW_MAXIMIZED);
+        return maximized == GLFW_TRUE;
+    }
+
+    void GLFWWindow::Maximize() { glfwMaximizeWindow(m_Window); }
+
+    void GLFWWindow::Minimize() { glfwIconifyWindow(m_Window); }
+
+    void GLFWWindow::Restore() { glfwRestoreWindow(m_Window); }
 
     void GLFWWindow::OnUpdate()
     {
@@ -48,16 +264,26 @@ namespace Vega
         }
 
         GLFWmonitor* nowMonitor = NULL;
-        if (!glfw_get_window_monitor(&nowMonitor, m_Window))
+        if (!GlfwGetWindowMonitor(&nowMonitor, m_Window))
         {
             nowMonitor = glfwGetPrimaryMonitor();
         }
         glfwGetMonitorContentScale(nowMonitor, NULL, &m_Data.MonitorScale);
+        glfwSetWindowUserPointer(m_Window, &m_Data);
+        disableTitlebar(m_Window);
         VEGA_CORE_TRACE("Current monitor: {}", static_cast<void*>(nowMonitor));
         VEGA_CORE_TRACE("Current monitor scale: {}", m_Data.MonitorScale);
 
         glfwMakeContextCurrent(m_Window);
-        glfwSetWindowUserPointer(m_Window, &m_Data);
+
+        int wWidth, wHeight;
+
+        glfwGetWindowSize(m_Window, &wWidth, &wHeight);
+
+        m_Data.Width = static_cast<uint32_t>(wWidth);
+        m_Data.Height = static_cast<uint32_t>(wHeight);
+
+        VEGA_CORE_INFO("{} {}; {} {}", m_Data.Width, m_Data.Height, wWidth, wHeight);
 
         SetCallbacks();
         // glfwSetErrorCallback(glfw_error_callback);
@@ -82,10 +308,10 @@ namespace Vega
     void GLFWWindow::SetCallbacks()
     {
         glfwSetWindowPosCallback(m_Window, [](GLFWwindow* _Window, int _PosX, int _PosY) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             GLFWmonitor* nowMonitor = NULL;
-            if (!glfw_get_window_monitor(&nowMonitor, _Window))
+            if (!GlfwGetWindowMonitor(&nowMonitor, _Window))
             {
                 nowMonitor = glfwGetPrimaryMonitor();
             }
@@ -102,7 +328,7 @@ namespace Vega
 
         // Set GLFW callbacks
         glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* _Window, int _Width, int _Height) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
             data.Width = _Width;
             data.Height = _Height;
 
@@ -113,7 +339,7 @@ namespace Vega
 
             {
                 GLFWmonitor* nowMonitor = NULL;
-                if (!glfw_get_window_monitor(&nowMonitor, _Window))
+                if (!GlfwGetWindowMonitor(&nowMonitor, _Window))
                 {
                     nowMonitor = glfwGetPrimaryMonitor();
                 }
@@ -130,7 +356,7 @@ namespace Vega
         });
 
         glfwSetWindowCloseCallback(m_Window, [](GLFWwindow* _Window) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             Scope<WindowCloseEvent> event = CreateScope<WindowCloseEvent>();
 
@@ -138,7 +364,7 @@ namespace Vega
         });
 
         glfwSetKeyCallback(m_Window, [](GLFWwindow* _Window, int _Key, int _ScanCode, int _Action, int _Mods) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             switch (_Action)
             {
@@ -161,14 +387,14 @@ namespace Vega
         });
 
         glfwSetCharCallback(m_Window, [](GLFWwindow* _Window, unsigned int _Keycode) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             Scope<KeyTypedEvent> event = CreateScope<KeyTypedEvent>(_Keycode);
             data.EventManager->QueueEvent(std::move(event));
         });
 
         glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* _Window, int _Button, int _Action, int _Mods) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             switch (_Action)
             {
@@ -186,7 +412,7 @@ namespace Vega
         });
 
         glfwSetScrollCallback(m_Window, [](GLFWwindow* _Window, double _OffsetX, double _OffsetY) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             Scope<MouseScrolledEvent> event =
                 CreateScope<MouseScrolledEvent>(static_cast<float>(_OffsetX), static_cast<float>(_OffsetY));
@@ -194,7 +420,7 @@ namespace Vega
         });
 
         glfwSetCursorPosCallback(m_Window, [](GLFWwindow* _Window, double _PosX, double _PosY) {
-            WindowData& data = *(WindowData*)glfwGetWindowUserPointer(_Window);
+            WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
 
             Scope<MouseMovedEvent> event =
                 CreateScope<MouseMovedEvent>(static_cast<float>(_PosX), static_cast<float>(_PosY));
@@ -202,115 +428,113 @@ namespace Vega
         });
     }
 
-    bool glfw_get_window_monitor(GLFWmonitor** monitor, GLFWwindow* window)
+    bool GlfwGetWindowMonitor(GLFWmonitor** _Monitor, GLFWwindow* _Window)
     {
         bool success = false;
 
-        int window_rectangle[4] = { 0 };
-        glfwGetWindowPos(window, &window_rectangle[0], &window_rectangle[1]);
-        glfwGetWindowSize(window, &window_rectangle[2], &window_rectangle[3]);
+        int windowRectangle[4] = { 0 };
+        glfwGetWindowPos(_Window, &windowRectangle[0], &windowRectangle[1]);
+        glfwGetWindowSize(_Window, &windowRectangle[2], &windowRectangle[3]);
 
-        int monitors_size = 0;
-        GLFWmonitor** monitors = glfwGetMonitors(&monitors_size);
+        int monitorsSize = 0;
+        GLFWmonitor** monitors = glfwGetMonitors(&monitorsSize);
 
-        GLFWmonitor* closest_monitor = NULL;
-        int max_overlap_area = 0;
+        GLFWmonitor* closestMonitor = NULL;
+        int maxOverlapArea = 0;
 
-        for (int i = 0; i < monitors_size; ++i)
+        for (int i = 0; i < monitorsSize; ++i)
         {
-            int monitor_position[2] = { 0 };
-            glfwGetMonitorPos(monitors[i], &monitor_position[0], &monitor_position[1]);
+            int monitorPosition[2] = { 0 };
+            glfwGetMonitorPos(monitors[i], &monitorPosition[0], &monitorPosition[1]);
 
-            const GLFWvidmode* monitor_video_mode = glfwGetVideoMode(monitors[i]);
+            const GLFWvidmode* monitorVideoMode = glfwGetVideoMode(monitors[i]);
 
-            int monitor_rectangle[4] = {
-                monitor_position[0],
-                monitor_position[1],
-                monitor_video_mode->width,
-                monitor_video_mode->height,
+            int monitorRectangle[4] = {
+                monitorPosition[0],
+                monitorPosition[1],
+                monitorVideoMode->width,
+                monitorVideoMode->height,
             };
 
-            if (!(((window_rectangle[0] + window_rectangle[2]) < monitor_rectangle[0]) ||
-                  (window_rectangle[0] > (monitor_rectangle[0] + monitor_rectangle[2])) ||
-                  ((window_rectangle[1] + window_rectangle[3]) < monitor_rectangle[1]) ||
-                  (window_rectangle[1] > (monitor_rectangle[1] + monitor_rectangle[3]))))
+            if (!(((windowRectangle[0] + windowRectangle[2]) < monitorRectangle[0]) ||
+                  (windowRectangle[0] > (monitorRectangle[0] + monitorRectangle[2])) ||
+                  ((windowRectangle[1] + windowRectangle[3]) < monitorRectangle[1]) ||
+                  (windowRectangle[1] > (monitorRectangle[1] + monitorRectangle[3]))))
             {
-                int intersection_rectangle[4] = { 0 };
+                int intersectionRectangle[4] = { 0 };
 
                 // x, width
-                if (window_rectangle[0] < monitor_rectangle[0])
+                if (windowRectangle[0] < monitorRectangle[0])
                 {
-                    intersection_rectangle[0] = monitor_rectangle[0];
+                    intersectionRectangle[0] = monitorRectangle[0];
 
-                    if ((window_rectangle[0] + window_rectangle[2]) < (monitor_rectangle[0] + monitor_rectangle[2]))
+                    if ((windowRectangle[0] + windowRectangle[2]) < (monitorRectangle[0] + monitorRectangle[2]))
                     {
-                        intersection_rectangle[2] =
-                            (window_rectangle[0] + window_rectangle[2]) - intersection_rectangle[0];
+                        intersectionRectangle[2] = (windowRectangle[0] + windowRectangle[2]) - intersectionRectangle[0];
                     }
                     else
                     {
-                        intersection_rectangle[2] = monitor_rectangle[2];
+                        intersectionRectangle[2] = monitorRectangle[2];
                     }
                 }
                 else
                 {
-                    intersection_rectangle[0] = window_rectangle[0];
+                    intersectionRectangle[0] = windowRectangle[0];
 
-                    if ((monitor_rectangle[0] + monitor_rectangle[2]) < (window_rectangle[0] + window_rectangle[2]))
+                    if ((monitorRectangle[0] + monitorRectangle[2]) < (windowRectangle[0] + windowRectangle[2]))
                     {
-                        intersection_rectangle[2] =
-                            (monitor_rectangle[0] + monitor_rectangle[2]) - intersection_rectangle[0];
+                        intersectionRectangle[2] =
+                            (monitorRectangle[0] + monitorRectangle[2]) - intersectionRectangle[0];
                     }
                     else
                     {
-                        intersection_rectangle[2] = window_rectangle[2];
+                        intersectionRectangle[2] = windowRectangle[2];
                     }
                 }
 
                 // y, height
-                if (window_rectangle[1] < monitor_rectangle[1])
+                if (windowRectangle[1] < monitorRectangle[1])
                 {
-                    intersection_rectangle[1] = monitor_rectangle[1];
+                    intersectionRectangle[1] = monitorRectangle[1];
 
-                    if ((window_rectangle[1] + window_rectangle[3]) < (monitor_rectangle[1] + monitor_rectangle[3]))
+                    if ((windowRectangle[1] + windowRectangle[3]) < (monitorRectangle[1] + monitorRectangle[3]))
                     {
-                        intersection_rectangle[3] =
-                            (window_rectangle[1] + window_rectangle[3]) - intersection_rectangle[1];
+                        intersectionRectangle[3] = (windowRectangle[1] + windowRectangle[3]) - intersectionRectangle[1];
                     }
                     else
                     {
-                        intersection_rectangle[3] = monitor_rectangle[3];
+                        intersectionRectangle[3] = monitorRectangle[3];
                     }
                 }
                 else
                 {
-                    intersection_rectangle[1] = window_rectangle[1];
+                    intersectionRectangle[1] = windowRectangle[1];
 
-                    if ((monitor_rectangle[1] + monitor_rectangle[3]) < (window_rectangle[1] + window_rectangle[3]))
+                    if ((monitorRectangle[1] + monitorRectangle[3]) < (windowRectangle[1] + windowRectangle[3]))
                     {
-                        intersection_rectangle[3] =
-                            (monitor_rectangle[1] + monitor_rectangle[3]) - intersection_rectangle[1];
+                        intersectionRectangle[3] =
+                            (monitorRectangle[1] + monitorRectangle[3]) - intersectionRectangle[1];
                     }
                     else
                     {
-                        intersection_rectangle[3] = window_rectangle[3];
+                        intersectionRectangle[3] = windowRectangle[3];
                     }
                 }
 
-                // int overlap_area = intersection_rectangle[3] * intersection_rectangle[4];
-                int overlap_area = intersection_rectangle[2] * intersection_rectangle[3];
+                // int overlapArea = intersectionRectangle[3] * intersectionRectangle[4];
+                int overlapArea = intersectionRectangle[2] * intersectionRectangle[3];
 
-                if (overlap_area > max_overlap_area)
+                if (overlapArea > maxOverlapArea)
                 {
-                    closest_monitor = monitors[i];
-                    max_overlap_area = overlap_area;
+                    closestMonitor = monitors[i];
+                    maxOverlapArea = overlapArea;
                 }
             }
         }
 
-        if (closest_monitor)
+        if (closestMonitor)
         {
-            *monitor = closest_monitor;
+            *_Monitor = closestMonitor;
             success = true;
         }
 

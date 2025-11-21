@@ -11,8 +11,6 @@
 #include "Vega/Plugins/PluginLibrary.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
 
-#include <functional>
-
 int main(int argc, char** argv);
 
 namespace Vega
@@ -36,6 +34,7 @@ namespace Vega
         std::string WorkingDirectory;
         std::string BinaryDirectory;
         RendererBackendApi RendererAPI = RendererBackendApi::kVulkan;
+        bool IsUseCustomTitlebar = true;
         ApplicationCommandLineArgs CommandLineArgs;
     };
 
@@ -58,6 +57,14 @@ namespace Vega
         const ApplicationProps& GetProps() const { return m_Props; }
 
         const Ref<RendererBackend> GetRendererBackend() const { return m_RendererBackend; }
+
+        bool GetIsHasCutsomTitleBar() const;
+
+        inline void SetIsMainMenuAnyItemHovered(bool _IsHovered) { m_IsMainMenuAnyItemHovered = _IsHovered; }
+        inline bool GetIsMainMenuAnyItemHovered() const { return m_IsMainMenuAnyItemHovered; }
+
+        inline void SetMainMenuFrameHeight(float _Height) { m_MainMenuFrameHeight = _Height; }
+        inline float GetMainMenuFrameHeight() const { return m_MainMenuFrameHeight; }
 
         // template <typename T>
         // const Ref<T> GetCastedRendererBackend() const
@@ -86,6 +93,9 @@ namespace Vega
         bool m_Resizing = false;
         LayerStack m_LayerStack;
         float m_LastFrameTime = 0.0f;
+
+        bool m_IsMainMenuAnyItemHovered = false;
+        float m_MainMenuFrameHeight = 48.0f;
 
     private:
         static Application* s_Instance;

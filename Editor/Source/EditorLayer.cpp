@@ -12,6 +12,8 @@
 namespace Vega
 {
 
+    constexpr float kMainMenuFramePadding = 16.0f;
+
     void EditorLayer::OnAttach(Ref<EventManager> _EventManager)
     {
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
@@ -82,9 +84,16 @@ namespace Vega
 
     void EditorLayer::OnGuiRender()
     {
+        float offsetY = DrawGuiTitlebar();
+
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->Pos);
-        ImGui::SetNextWindowSize(viewport->Size);
+
+        ImVec2 pos = viewport->Pos;
+        pos.y += offsetY;
+        ImVec2 size = viewport->Size;
+        size.y -= offsetY;
+        ImGui::SetNextWindowPos(pos);
+        ImGui::SetNextWindowSize(size);
         ImGui::SetNextWindowViewport(viewport->ID);
         ImGui::SetNextWindowBgAlpha(0.0f);
 
@@ -125,13 +134,13 @@ namespace Vega
 
         ImGui::End();
 
-        if (ImGui::BeginMainMenuBar())
-        {
-            if (ImGui::MenuItem("Test"))
-            {
-            }
-            ImGui::EndMainMenuBar();
-        }
+        // if (ImGui::BeginMainMenuBar())
+        // {
+        //     if (ImGui::MenuItem("Test"))
+        //     {
+        //     }
+        //     ImGui::EndMainMenuBar();
+        // }
 
         if (ImGui::Begin("Scene"))
         {
@@ -176,7 +185,182 @@ namespace Vega
         }
         ImGui::End();
 
-        ImGui::ShowDemoWindow();
+        if (m_IsDrawImGuiDemoWindow)
+        {
+            ImGui::ShowDemoWindow(&m_IsDrawImGuiDemoWindow);
+        }
+    }
+
+    bool EditorLayer::GuiDrawBeginMenu(std::string_view _Title)
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+
+        style.TouchExtraPadding.y = kMainMenuFramePadding;
+        bool res = ImGui::BeginMenu(_Title.data());
+        style.TouchExtraPadding.y = 0.0f;
+        if (ImGui::IsItemHovered())
+        {
+            Application::Get().SetIsMainMenuAnyItemHovered(true);
+        }
+
+        return res;
+    }
+
+    bool EditorLayer::GuiDrawMenuButton(std::string_view _Title, float _CursorPosY, const glm::vec2& _Size)
+    {
+        ImGui::SetCursorPosY(_CursorPosY);
+        bool res = ImGui::Button(_Title.data(), { _Size.x, _Size.y });
+        if (ImGui::IsItemHovered())
+        {
+            Application::Get().SetIsMainMenuAnyItemHovered(true);
+        }
+
+        return res;
+    }
+
+    float EditorLayer::DrawGuiTitlebar()
+    {
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+        float frameHeightOld = ImGui::GetFrameHeight();
+
+        ImGui::PushStyleVarY(ImGuiStyleVar_FramePadding, kMainMenuFramePadding);
+        ImGui::PushStyleVarY(ImGuiStyleVar_ItemSpacing, kMainMenuFramePadding);
+        ImGui::PushStyleVarY(ImGuiStyleVar_WindowPadding, kMainMenuFramePadding);
+        ImGui::PushStyleColor(ImGuiCol_MenuBarBg, 0xff1b1b1b);
+        ImGuiWindowFlags viewportSideBarFlags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
+                                                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
+        Application::Get().SetIsMainMenuAnyItemHovered(false);
+        float frameHeight = ImGui::GetFrameHeight();
+        Application::Get().SetMainMenuFrameHeight(frameHeight);
+        if (ImGui::BeginViewportSideBar("##Toolbar", viewport, ImGuiDir_Up, frameHeight, viewportSideBarFlags))
+        {
+            if (ImGui::BeginMenuBar())
+            {
+                ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, kMainMenuFramePadding);
+                float logoHeight = frameHeight - kMainMenuFramePadding * 1.5f;
+                float logoPosY = (frameHeight - logoHeight) / 2.0f;
+                float cursorPosY = ImGui::GetCursorPosY();
+                // ImGui::SetCursorPosY(cursorPosY + logoPosY);
+                // ImGui::Image(reinterpret_cast<ImTextureID>(m_AppLogoLight->GetTextureId()),
+                //              { m_AppLogoLight->GetWidth() / m_AppLogoLight->GetHeight() * logoHeight, logoHeight });
+
+                ImGui::SetCursorPosY(cursorPosY);
+                if (GuiDrawBeginMenu("File"))
+                {
+                    if (ImGui::MenuItem("Open Project...", "Ctrl+O"))
+                    {
+                        // OpenProject();
+                    }
+
+                    if (ImGui::MenuItem("New Project", "Ctrl+N"))
+                    {
+                        // NewProject();
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::MenuItem("Save", "Ctrl+S"))
+                    {
+                        // SaveProject();
+                    }
+
+                    if (ImGui::MenuItem("Save Project As...", "Ctrl+Shift+S"))
+                    {
+                        // SaveProjectAs();
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::MenuItem("Close", "Ctrl+F4"))
+                    {
+                        // CloseProject();
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::MenuItem("Exit"))
+                    {
+                        Application::Get().Close();
+                    }
+
+                    ImGui::EndMenu();
+                }
+
+                ImGui::SetCursorPosY(cursorPosY);
+                if (GuiDrawBeginMenu("Window"))
+                {
+                    // if (ImGui::MenuItem("Select Construction", nullptr, m_IsDrawSelectConstructionWindow))
+                    // {
+                    //     m_IsDrawSelectConstructionWindow = !m_IsDrawSelectConstructionWindow;
+                    // }
+
+                    // if (ImGui::MenuItem("Test Table", nullptr, m_IsDrawTestTableWindow))
+                    // {
+                    //     m_IsDrawTestTableWindow = !m_IsDrawTestTableWindow;
+                    // }
+
+                    // ImGui::Separator();
+
+                    if (ImGui::MenuItem("ImGui Demo", nullptr, m_IsDrawImGuiDemoWindow))
+                    {
+                        m_IsDrawImGuiDemoWindow = !m_IsDrawImGuiDemoWindow;
+                    }
+
+                    ImGui::EndMenu();
+                }
+
+                ImGui::PopStyleVar();
+
+                ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, 0.0f);
+                ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+                float buttonWidth = frameHeight * 1.2f;
+                glm::vec2 buttonSize = { buttonWidth, frameHeight };
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - buttonWidth * 3.0f +
+                                     ImGui::GetStyle().WindowPadding.x);
+
+                Ref<Window> window = Application::Get().GetWindow();
+
+                if (GuiDrawMenuButton(ICON_FA_MINUS, cursorPosY, buttonSize))
+                {
+                    window->Minimize();
+                }
+
+                if (window->IsWindowMaximized())
+                {
+                    if (GuiDrawMenuButton(ICON_FA_WINDOW_RESTORE, cursorPosY, buttonSize))
+                    {
+                        window->Restore();
+                    }
+                }
+                else
+                {
+                    if (GuiDrawMenuButton(ICON_FA_WINDOW_MAXIMIZE, cursorPosY, buttonSize))
+                    {
+                        window->Maximize();
+                    }
+                }
+
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xff4f4eff);
+                if (GuiDrawMenuButton(ICON_FA_XMARK, cursorPosY, buttonSize))
+                {
+                    Application::Get().Close();
+                }
+                ImGui::PopStyleColor();
+
+                ImGui::PopStyleColor();
+
+                ImGui::PopStyleVar();
+
+                ImGui::EndMenuBar();
+            }
+
+            ImGui::End();
+        }
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(3);
+
+        return frameHeight - frameHeightOld;
     }
 
 }    // namespace Vega
