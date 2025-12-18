@@ -35,6 +35,7 @@ namespace Vega
         glm::u32vec2 m_ViewportDimensions;
         size_t m_FramesToSkip = 0;
 
+        Ref<Texture> m_AppLogo;
         bool m_IsDrawImGuiDemoWindow = false;
     };
 

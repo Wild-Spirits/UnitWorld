@@ -891,22 +891,22 @@ namespace Vega
     void VulkanRendererBackend::CreateImGuiDescriptorPool()
     {
         VkDescriptorPoolSize poolSizes[] = {
-            {                VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-            {          VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-            {          VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-            {   VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-            {   VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-            {         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-            {         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-            {       VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 },
+            {                VK_DESCRIPTOR_TYPE_SAMPLER, 768 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 768 },
+            {          VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 768 },
+            {          VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 768 },
+            {   VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 768 },
+            {   VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 768 },
+            {         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 768 },
+            {         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 768 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 768 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 768 },
+            {       VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 768 },
         };
         VkDescriptorPoolCreateInfo poolInfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets = 1000,
+            .maxSets = 768,
             .poolSizeCount = static_cast<uint32_t>(std::size(poolSizes)),
             .pPoolSizes = poolSizes,
         };
@@ -935,10 +935,43 @@ namespace Vega
         return shader;
     }
 
+    VkCommandBuffer VulkanRendererBackend::CreateAndBeginSingleUseCommandBuffer()
+    {
+        VkCommandBufferAllocateInfo commandBufferAllocInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = m_VkDeviceWrapper.GetGraphicsCommandPool(),
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
+
+        VkCommandBuffer singleUseCommandBuffer;
+        VK_CHECK(vkAllocateCommandBuffers(m_VkDeviceWrapper.GetLogicalDevice(), &commandBufferAllocInfo,
+                                          &singleUseCommandBuffer));
+
+        VkCommandBufferBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+
+        VK_CHECK(vkBeginCommandBuffer(singleUseCommandBuffer, &beginInfo));
+
+        return singleUseCommandBuffer;
+    }
+
+    void VulkanRendererBackend::DestroySingleUseCommandBuffer(VkCommandBuffer _CommandBuffer) { }
+
     Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, const TextureProps& _Props)
     {
         Ref<VulkanTexture> texture = CreateRef<VulkanTexture>();
         texture->Create(_Name, _Props);
+
+        return texture;
+    }
+
+    Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data)
+    {
+        Ref<VulkanTexture> texture = CreateRef<VulkanTexture>();
+        texture->Create(_Name, _Props, _Data);
 
         return texture;
     }

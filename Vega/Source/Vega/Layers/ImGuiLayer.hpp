@@ -31,19 +31,14 @@ namespace Vega
 
         uint32_t GetActiveWidgetID() const;
 
-        void ChangeFontSize(bool _NeedUpdateFontTexture);
-
-        void SetFontSize(int _FontSize = 14) { m_FontSize = _FontSize; }
+        void LoadCustomFonts();
 
     private:
         Ref<ImGuiImpl> m_ImGuiImpl;
 
         bool m_BlockEvents = true;
 
-        bool m_ChangeSize = false;
         int m_FontSize = 14;
-
-        std::unordered_map<int, ImFont*> m_Fonts;
     };
 
 }    // namespace Vega

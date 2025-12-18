@@ -45,6 +45,10 @@ namespace Vega
 
         // TODO: implement
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override { return nullptr; }
+        Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data) override
+        {
+            return nullptr;
+        }
 
         // TODO: implement
         Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override { return nullptr; }

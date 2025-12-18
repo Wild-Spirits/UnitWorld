@@ -6,6 +6,7 @@
 #include "VulkanSwapchain.hpp"
 
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace Vega
 {
@@ -97,7 +98,11 @@ namespace Vega
         Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                  const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override;
 
+        VkCommandBuffer CreateAndBeginSingleUseCommandBuffer();
+        void DestroySingleUseCommandBuffer(VkCommandBuffer _CommandBuffer);
+
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override;
+        Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data) override;
 
         Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override;
 

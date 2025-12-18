@@ -5,6 +5,7 @@
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
 #include "Vega/Renderer/RendererBackend.hpp"
 #include "Vega/Renderer/Shader.hpp"
+#include "Vega/Utils/Log.hpp"
 #include "glm/fwd.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -29,6 +30,9 @@ namespace Vega
             .IsUsedForGui = true,
         });
 
+        m_AppLogo = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo.png",
+                                                   TextureProps { .IsUsedForGui = true });
+
         // m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
 
         m_Shader = Application::Get().GetRendererBackend()->CreateShader(
@@ -47,6 +51,7 @@ namespace Vega
 
     void EditorLayer::OnDetach()
     {
+        m_AppLogo->Destroy();
         m_Shader->Shutdown();
         m_FrameBuffer->Destroy();
     }
@@ -183,6 +188,7 @@ namespace Vega
         if (ImGui::Begin("Props"))
         {
         }
+
         ImGui::End();
 
         if (m_IsDrawImGuiDemoWindow)
@@ -233,7 +239,8 @@ namespace Vega
         Application::Get().SetIsMainMenuAnyItemHovered(false);
         float frameHeight = ImGui::GetFrameHeight();
         Application::Get().SetMainMenuFrameHeight(frameHeight);
-        if (ImGui::BeginViewportSideBar("##Toolbar", viewport, ImGuiDir_Up, frameHeight, viewportSideBarFlags))
+        if (ImGui::BeginViewportSideBar(std::format("##Toolbar{}", reinterpret_cast<void*>(viewport)).c_str(), viewport,
+                                        ImGuiDir_Up, frameHeight, viewportSideBarFlags))
         {
             if (ImGui::BeginMenuBar())
             {
@@ -241,9 +248,11 @@ namespace Vega
                 float logoHeight = frameHeight - kMainMenuFramePadding * 1.5f;
                 float logoPosY = (frameHeight - logoHeight) / 2.0f;
                 float cursorPosY = ImGui::GetCursorPosY();
-                // ImGui::SetCursorPosY(cursorPosY + logoPosY);
-                // ImGui::Image(reinterpret_cast<ImTextureID>(m_AppLogoLight->GetTextureId()),
-                //              { m_AppLogoLight->GetWidth() / m_AppLogoLight->GetHeight() * logoHeight, logoHeight });
+                ImGui::SetCursorPosY(cursorPosY + logoPosY);
+                ImGui::Image(reinterpret_cast<ImTextureID>(m_AppLogo->GetTextureGuiId()),
+                             { static_cast<float>(m_AppLogo->GetWidth()) / static_cast<float>(m_AppLogo->GetHeight()) *
+                                   logoHeight,
+                               logoHeight });
 
                 ImGui::SetCursorPosY(cursorPosY);
                 if (GuiDrawBeginMenu("File"))

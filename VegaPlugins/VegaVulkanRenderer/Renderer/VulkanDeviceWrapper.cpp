@@ -115,7 +115,6 @@ namespace Vega
 
         bool portabilityRequired = false;
         uint32_t availableExtensionCount = 0;
-        VkExtensionProperties* availableExtensions = 0;
         VK_CHECK(vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &availableExtensionCount, nullptr));
         if (availableExtensionCount != 0)
         {
@@ -309,7 +308,7 @@ namespace Vega
 
     VulkanSwapchainSupportInfo VulkanDeviceWrapper::GetSwapchainSupportInfo(VkSurfaceKHR _Surface) const
     {
-        VulkanSwapchainSupportInfo swapchainSupportInfo = { 0 };
+        VulkanSwapchainSupportInfo swapchainSupportInfo = { { 0 } };
 
         VkResult capabilitiesResult =
             vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice, _Surface, &swapchainSupportInfo.Capabilities);
@@ -317,7 +316,7 @@ namespace Vega
         if (!VulkanResultIsSuccess(capabilitiesResult))
         {
             VEGA_CORE_CRITICAL("vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed with message: {}",
-                               (capabilitiesResult, true));
+                               VulkanResultString(capabilitiesResult, true));
             VEGA_CORE_ASSERT(false, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed!");
         }
 

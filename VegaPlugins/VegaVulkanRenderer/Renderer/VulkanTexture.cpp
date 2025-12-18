@@ -5,6 +5,8 @@
 #include "Utils/VulkanUtils.hpp"
 #include "VulkanBase.hpp"
 #include "VulkanRendererBackend.hpp"
+#include "backends/imgui_impl_vulkan.h"
+#include <vulkan/vulkan_core.h>
 
 namespace Vega
 {
@@ -132,6 +134,128 @@ namespace Vega
                                          std::format("{}_view_layer_{}", _Name.data(), i).c_str());
             }
         }
+
+        if (m_Props.IsUsedForGui)
+        {
+            VkSamplerCreateInfo samplerInfo {
+                .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+                .magFilter = VK_FILTER_LINEAR,
+                .minFilter = VK_FILTER_LINEAR,
+                .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+                .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+                .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+                .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+                .maxAnisotropy = 1.0f,
+                .minLod = -1000,
+                .maxLod = 1000,
+            };
+            VK_CHECK(vkCreateSampler(logicalDevice, &samplerInfo, context.VkAllocator, &m_Sampler));
+
+            m_DescriptorSet = ImGui_ImplVulkan_AddTexture(m_Sampler, GetTextureVkImageView(),
+                                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+    }
+
+    VulkanTextureTransitionMaskResult VulkanTexture::GetTransitionMask(VkImageLayout _OldLayout,
+                                                                       VkImageLayout _NewLayout)
+    {
+        if (_OldLayout == VK_IMAGE_LAYOUT_UNDEFINED && _NewLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+        {
+            return {
+                .SrcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                .SrcAccessMask = 0,
+                .DstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .DstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+            };
+        }
+        if (_OldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+            _NewLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            return {
+                .SrcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .SrcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                .DstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                .DstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+            };
+        }
+        if (_OldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL &&
+            _NewLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            return {
+                .SrcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .SrcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
+                .DstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                .DstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
+            };
+        }
+        if (_OldLayout == VK_IMAGE_LAYOUT_UNDEFINED && _NewLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+        {
+            return {
+                .SrcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                .SrcAccessMask = 0,
+                .DstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .DstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
+            };
+        }
+
+        VEGA_CORE_ASSERT(false, "Unsupported layout transition!");
+        return {};
+    }
+
+    void VulkanTexture::TransitionImageLayout(VkImageLayout _OldLayout, VkImageLayout _NewLayout,
+                                              VkCommandBuffer _CommandBuffer)
+    {
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+
+        VulkanTextureTransitionMaskResult transitionMask = GetTransitionMask(_OldLayout, _NewLayout);
+
+        VkImageSubresourceRange imageSubresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+
+        // VkImageMemoryBarrier barrierToColor {
+        //     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        //     .srcAccessMask = 0,
+        //     .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        //     .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,    // только при первом кадре
+        //     .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        //     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        //     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        //     .image = m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->GetTextureVkImage(),
+        //     .subresourceRange = imageSubresourceRange,
+        // };
+        //
+        // vkCmdPipelineBarrier(rendererBackend->GetCurrentGraphicsCommandBuffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        //                      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
+        //                      &barrierToColor);
+
+        VkImageMemoryBarrier2 barrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+
+            .srcStageMask = transitionMask.SrcStageMask,
+            .srcAccessMask = transitionMask.SrcAccessMask,
+
+            .dstStageMask = transitionMask.DstStageMask,
+            .dstAccessMask = transitionMask.DstAccessMask,
+
+            .oldLayout = _OldLayout,
+            .newLayout = _NewLayout,
+
+            .image = m_Image,
+            .subresourceRange = imageSubresourceRange,
+        };
+
+        VkDependencyInfo depInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier,
+        };
+
+        vkCmdPipelineBarrier2(_CommandBuffer, &depInfo);
     }
 
     void VulkanTexture::Create(std::string_view _Name, const TextureProps& _Props)
@@ -163,8 +287,111 @@ namespace Vega
     void VulkanTexture::Create(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data)
     {
         Create(_Name, _Props);
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
-        // TODO: Implement
+        VkCommandBufferAllocateInfo commandBufferAllocInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = rendererBackend->GetVkDeviceWrapper().GetGraphicsCommandPool(),
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
+
+        VkCommandBuffer uploadCommandBuffer;
+        VK_CHECK(vkAllocateCommandBuffers(rendererBackend->GetVkDeviceWrapper().GetLogicalDevice(),
+                                          &commandBufferAllocInfo, &uploadCommandBuffer));
+
+        VkCommandBufferBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+
+        VK_CHECK(vkBeginCommandBuffer(uploadCommandBuffer, &beginInfo));
+
+        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
+
+        // Calculate buffer size
+        VkDeviceSize bufferSize = static_cast<VkDeviceSize>(_Props.Width) * _Props.Height * _Props.ChannelCount;
+
+        // TODO: Move staging buffer creation to VulkanCommandBuffer class or to renderer backend
+        // Create staging buffer
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        VkBufferCreateInfo bufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = bufferSize,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        };
+
+        VK_CHECK(
+            vkCreateBuffer(logicalDevice, &bufferInfo, rendererBackend->GetVkContext().VkAllocator, &stagingBuffer));
+
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(logicalDevice, stagingBuffer, &memRequirements);
+
+        uint32_t memoryTypeIndex = rendererBackend->GetVkDeviceWrapper().GetMemoryTypeIndex(
+            memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        VkMemoryAllocateInfo memoryAllocInfo = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = memRequirements.size,
+            .memoryTypeIndex = memoryTypeIndex,
+        };
+
+        VK_CHECK(vkAllocateMemory(logicalDevice, &memoryAllocInfo, rendererBackend->GetVkContext().VkAllocator,
+                                  &stagingBufferMemory));
+        VK_CHECK(vkBindBufferMemory(logicalDevice, stagingBuffer, stagingBufferMemory, 0));
+
+        // Copy data to staging buffer
+        void* mappedData;
+        vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &mappedData);
+        memcpy(mappedData, _Data, static_cast<size_t>(bufferSize));
+        vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+        // Transition image layout and copy buffer to image
+        TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uploadCommandBuffer);
+
+        // TODO: Move copy command to renderer backend
+        // Copy buffer to image
+
+        VkBufferImageCopy region = {
+                .bufferOffset = 0,
+                .bufferRowLength = 0,
+                .bufferImageHeight = 0,
+                .imageSubresource = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+                .imageOffset = { .x = 0, .y = 0, .z = 0 },
+                .imageExtent = { .width = _Props.Width, .height = _Props.Height, .depth = 1 }
+            };
+
+        vkCmdCopyBufferToImage(uploadCommandBuffer, stagingBuffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
+                               &region);
+
+        // Transition image layout for in shader access
+        TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              uploadCommandBuffer);
+
+        VK_CHECK(vkEndCommandBuffer(uploadCommandBuffer));
+
+        VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &uploadCommandBuffer,
+        };
+
+        VK_CHECK(
+            vkQueueSubmit(rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+        VK_CHECK(vkQueueWaitIdle(rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue()));
+
+        vkFreeCommandBuffers(logicalDevice, rendererBackend->GetVkDeviceWrapper().GetGraphicsCommandPool(), 1,
+                             &uploadCommandBuffer);
+        // Cleanup staging buffer
+        vkDestroyBuffer(logicalDevice, stagingBuffer, rendererBackend->GetVkContext().VkAllocator);
+        vkFreeMemory(logicalDevice, stagingBufferMemory, rendererBackend->GetVkContext().VkAllocator);
     }
 
     void VulkanTexture::CreateSwapchainTexture(VkImage _Image, VkSurfaceFormatKHR _ImageFormat,
@@ -200,6 +427,9 @@ namespace Vega
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
 
+        // TODO: find a better way to wait for all operations to be done on the texture
+        VK_CHECK(vkDeviceWaitIdle(logicalDevice));
+
         if (m_ImageView)
         {
             vkDestroyImageView(logicalDevice, m_ImageView, vkAllocator);
@@ -219,6 +449,17 @@ namespace Vega
 
         vkDestroyImage(logicalDevice, m_Image, vkAllocator);
         m_Image = nullptr;
+
+        if (m_DescriptorSet != VK_NULL_HANDLE)
+        {
+            ImGui_ImplVulkan_RemoveTexture(m_DescriptorSet);
+        }
+        m_DescriptorSet = VK_NULL_HANDLE;
+        if (m_Sampler != VK_NULL_HANDLE)
+        {
+            vkDestroySampler(logicalDevice, m_Sampler, vkAllocator);
+        }
+        m_Sampler = VK_NULL_HANDLE;
     }
 
     void VulkanTexture::Resize(std::string_view _Name, uint32_t _NewWidth, uint32_t _NewHeight)

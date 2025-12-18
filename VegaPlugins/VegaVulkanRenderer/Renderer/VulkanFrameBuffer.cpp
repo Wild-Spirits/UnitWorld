@@ -1,7 +1,9 @@
 #include "VulkanFrameBuffer.hpp"
+
 #include "Renderer/VulkanRendererBackend.hpp"
 #include "VulkanBase.hpp"
 #include "VulkanTexture.hpp"
+
 #include "backends/imgui_impl_vulkan.h"
 #include <vulkan/vulkan_core.h>
 
@@ -31,6 +33,7 @@ namespace Vega
 
                 m_VulkanTextures[0].push_back(texture);
 
+                // TODO: Move to Texture class?
                 if (m_Props.IsUsedForGui)
                 {
                     VkSamplerCreateInfo samplerInfo {
@@ -63,7 +66,9 @@ namespace Vega
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
 
+        // TODO: find a better way to wait for all operations to be done on the framebuffer
         VK_CHECK(vkDeviceWaitIdle(logicalDevice));
+
         for (auto& descriptorSet : m_DescriptorSets)
         {
             if (descriptorSet != VK_NULL_HANDLE)
@@ -120,112 +125,17 @@ namespace Vega
     void VulkanFrameBuffer::TransitToGui()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-
-        VkImageSubresourceRange imageSubresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-
-        };
-
-        // VkImageMemoryBarrier barrierToSample = {
-        //     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        //     .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        //     .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        //     .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        //     .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        //     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        //     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        //     .image = m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->GetTextureVkImage(),
-        //     .subresourceRange = imageSubresourceRange,
-        // };
-        //
-        // vkCmdPipelineBarrier(rendererBackend->GetCurrentGraphicsCommandBuffer(),
-        //                      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-        //                      0, nullptr, 0, nullptr, 1, &barrierToSample);
-
-        VkImageMemoryBarrier2 barrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-
-            .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-
-            .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-            .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-
-            .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-
-            .image = m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->GetTextureVkImage(),
-            .subresourceRange = imageSubresourceRange,
-        };
-
-        VkDependencyInfo depInfo = {
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &barrier,
-        };
-
-        vkCmdPipelineBarrier2(rendererBackend->GetCurrentGraphicsCommandBuffer(), &depInfo);
+        m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->TransitionImageLayout(
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            rendererBackend->GetCurrentGraphicsCommandBuffer());
     }
 
     void VulkanFrameBuffer::Bind()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-
-        VkImageSubresourceRange imageSubresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
-
-        // VkImageMemoryBarrier barrierToColor {
-        //     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        //     .srcAccessMask = 0,
-        //     .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        //     .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,    // только при первом кадре
-        //     .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        //     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        //     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        //     .image = m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->GetTextureVkImage(),
-        //     .subresourceRange = imageSubresourceRange,
-        // };
-        //
-        // vkCmdPipelineBarrier(rendererBackend->GetCurrentGraphicsCommandBuffer(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        //                      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
-        //                      &barrierToColor);
-
-        VkImageMemoryBarrier2 barrier = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .pNext = nullptr,
-
-            .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
-            .srcAccessMask = 0,    // UNDEFINED → ничего не нужно ждать
-
-            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-
-            .image = m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->GetTextureVkImage(),
-            .subresourceRange = imageSubresourceRange,
-        };
-
-        VkDependencyInfo depInfo = {
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &barrier,
-        };
-
-        vkCmdPipelineBarrier2(rendererBackend->GetCurrentGraphicsCommandBuffer(), &depInfo);
+        m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->TransitionImageLayout(
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            rendererBackend->GetCurrentGraphicsCommandBuffer());
     }
 
 }    // namespace Vega

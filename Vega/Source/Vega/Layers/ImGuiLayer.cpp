@@ -7,7 +7,6 @@
 #include "Vega/Events/EventDispatcher.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
-#include "Vega/Utils/Log.hpp"
 
 #include <backends/imgui_impl_glfw.h>
 #include <glm/glm.hpp>
@@ -44,16 +43,13 @@ namespace Vega
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;    // Enable Multi-Viewport / Platform Windows
         io.ConfigDpiScaleFonts = true;
 
+        // io.ConfigViewportsNoDecoration = false;
+        // io.ConfigViewportsNoDefaultParent = true;
+
         // io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoTaskBarIcons;
         // io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoMerge;
 
-#if USE_CUSTOM_FONT
-
-        SetFontSize();
-        m_ChangeSize = true;
-        ChangeFontSize(false);
-
-#endif
+        LoadCustomFonts();
 
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
@@ -183,63 +179,37 @@ namespace Vega
         colors[ImGuiCol_TitleBgCollapsed] = ImVec4 { 0.15f, 0.1505f, 0.151f, 1.0f };
     }
 
-    void ImGuiLayer::ChangeFontSize(bool _NeedUpdateFontTexture)
+    void ImGuiLayer::LoadCustomFonts()
     {
+        ImGuiIO& io = ImGui::GetIO();
+
+        ImFontConfig config;
+
+        ImFont* font = nullptr;
+
+        float fontSize = static_cast<float>(m_FontSize);
+        font = io.Fonts->AddFontFromFileTTF(regFont.c_str(), fontSize, &config, io.Fonts->GetGlyphRangesCyrillic());
+
 #if USE_CUSTOM_FONT
-        if (m_ChangeSize)
-        {
-            ImGuiIO& io = ImGui::GetIO();
+        config.MergeMode = true;
+        config.GlyphMinAdvanceX = fontSize;    // Use if you want to make the icon monospaced
+        // config.DstFont = font;
 
-            ImFontConfig config;
+        static const ImWchar iconRangesFa[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+        std::filesystem::path farPath =
+            std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAR);
+        std::filesystem::path fasPath =
+            std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAS);
+        io.Fonts->AddFontFromFileTTF(farPath.string().c_str(), fontSize, &config, iconRangesFa);
+        io.Fonts->AddFontFromFileTTF(fasPath.string().c_str(), fontSize, &config, iconRangesFa);
 
-            bool isFontExists = m_Fonts.contains(m_FontSize);
-
-            ImFont* font = nullptr;
-
-            if (isFontExists)
-            {
-                font = m_Fonts[m_FontSize];
-            }
-            else
-            {
-                float fontSize = static_cast<float>(m_FontSize);
-                font = io.Fonts->AddFontFromFileTTF(regFont.c_str(), fontSize, &config,
-                                                    io.Fonts->GetGlyphRangesCyrillic());
-
-                config.MergeMode = true;
-                config.GlyphMinAdvanceX = fontSize;    // Use if you want to make the icon monospaced
-                // config.DstFont = font;
-
-                static const ImWchar iconRangesFa[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-                std::filesystem::path farPath =
-                    std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAR);
-                std::filesystem::path fasPath =
-                    std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAS);
-                io.Fonts->AddFontFromFileTTF(farPath.string().c_str(), fontSize, &config, iconRangesFa);
-                io.Fonts->AddFontFromFileTTF(fasPath.string().c_str(), fontSize, &config, iconRangesFa);
-                // io.Fonts->AddFontFromFileTTF(regFont.c_str(), fontSize, &config, );
-
-                static const ImWchar iconRangesFab[] = { ICON_MIN_FAB, ICON_MAX_FAB, 0 };
-                std::filesystem::path fabPath =
-                    std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAB);
-                io.Fonts->AddFontFromFileTTF(fabPath.string().c_str(), fontSize, &config, iconRangesFab);
-
-                m_Fonts[m_FontSize] = font;
-            }
-            io.FontDefault = font;
-
-            if (_NeedUpdateFontTexture && !isFontExists)
-            {
-                io.Fonts->Build();
-                m_ImGuiImpl->RecreateFontTexture();
-            }
-
-            VEGA_CORE_TRACE("ImGui font size: {}", m_FontSize);
-
-            m_ChangeSize = false;
-        }
-
+        static const ImWchar iconRangesFab[] = { ICON_MIN_FAB, ICON_MAX_FAB, 0 };
+        std::filesystem::path fabPath =
+            std::filesystem::path(faFontsFolder) / std::filesystem::path(FONT_ICON_FILE_NAME_FAB);
+        io.Fonts->AddFontFromFileTTF(fabPath.string().c_str(), fontSize, &config, iconRangesFab);
 #endif
+
+        io.FontDefault = font;
     }
 
     uint32_t ImGuiLayer::GetActiveWidgetID() const { return GImGui->ActiveId; }

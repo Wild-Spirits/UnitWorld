@@ -2,7 +2,7 @@
 
 #include "Vega/Core/Base.hpp"
 
-#include <string>
+#include <string_view>
 
 namespace Vega
 {
@@ -69,6 +69,7 @@ namespace Vega
         uint32_t ChannelCount;
         uint32_t MipLevels = 1;
         uint32_t ArraySize = 1;
+        bool IsUsedForGui = false;
         TextureFlags Flags = TextureFlagBits::kNone;
     };
 
@@ -83,7 +84,7 @@ namespace Vega
         virtual void Destroy() = 0;
         virtual void Resize(std::string_view _Name, uint32_t _NewWidth, uint32_t _NewHeight) = 0;
 
-        virtual void* GetTextureId() const = 0;
+        virtual void* GetTextureGuiId() const = 0;
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;
         virtual uint32_t GetMipLevels() const = 0;

@@ -1,9 +1,13 @@
 #include "RendererBackend.hpp"
 
+#include "Platform/OpenGL/Renderer/OpenGlRendererBackend.hpp"
 #include "Vega/Core/Assert.hpp"
 #include "Vega/Plugins/PluginLibrary.hpp"
 
-#include "Platform/OpenGL/Renderer/OpenGlRendererBackend.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#include <format>
 
 namespace Vega
 {
@@ -23,6 +27,25 @@ namespace Vega
 
         VEGA_CORE_ASSERT(false, "RendererBackend::Create: Unknown RendererAPI!")
         return CreateReturnValue { .Plugin = nullptr, .Backend = nullptr };
+    }
+
+    Ref<Texture> RendererBackend::CreateTexture(std::string_view _Name, const std::filesystem::path& _Filename,
+                                                const TextureProps& _Props)
+    {
+        int width, height, channels;
+        // stbi_set_flip_vertically_on_load(1);
+        unsigned char* data = stbi_load(_Filename.string().c_str(), &width, &height, &channels, 0);
+        VEGA_CORE_ASSERT(data, std::format("Failed to load texture from file: {}", _Filename.string()));
+
+        TextureProps props = _Props;
+        props.Width = width;
+        props.Height = height;
+        props.ChannelCount = channels;
+
+        Ref<Texture> texture = CreateTexture(_Name, props, data);
+        stbi_image_free(data);
+
+        return texture;
     }
 
     RendererBackend::CreateReturnValue RendererBackend::CreateVulkanRendererBackend()
