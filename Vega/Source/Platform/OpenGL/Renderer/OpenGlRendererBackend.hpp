@@ -52,6 +52,9 @@ namespace Vega
 
         // TODO: implement
         Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override { return nullptr; }
+
+        // TODO: implement
+        Ref<RenderBuffer> CreateRenderBuffer(const RenderBufferProps& _Props) override { return nullptr; }
     };
 
 }    // namespace Vega

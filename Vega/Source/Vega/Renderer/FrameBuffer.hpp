@@ -32,6 +32,8 @@ namespace Vega
 
         virtual void TransitToGui() = 0;
 
+        virtual void BindAndClearColorDepthStencil() = 0;
+
         virtual void Bind() = 0;
 
     protected:

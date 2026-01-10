@@ -3,6 +3,7 @@
 #include "Vega/Renderer/RendererBackend.hpp"
 #include "VulkanBase.hpp"
 #include "VulkanDeviceWrapper.hpp"
+#include "VulkanRenderBuffer.hpp"
 #include "VulkanSwapchain.hpp"
 
 #include <vector>
@@ -69,6 +70,7 @@ namespace Vega
         inline const VulkanSwapchain& GetVkSwapchain() const { return m_VkSwapchain; }
 
         VkCommandBuffer GetCurrentGraphicsCommandBuffer() const;
+        Ref<VulkanRenderBuffer> GetCurrentStagingBuffer() const;
 
         uint32_t GetCurrentImageIndex() const { return m_ImageIndex; }
         uint32_t GetCurrentFrameIndex() const { return m_CurrentFrame; }
@@ -99,12 +101,15 @@ namespace Vega
                                  const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override;
 
         VkCommandBuffer CreateAndBeginSingleUseCommandBuffer();
-        void DestroySingleUseCommandBuffer(VkCommandBuffer _CommandBuffer);
+        void DestroyAndEndSingleUseCommandBuffer(VkCommandBuffer _CommandBuffer, VkQueue _Queue,
+                                                 VkCommandPool _CommandPool);
 
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override;
         Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data) override;
 
         Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override;
+
+        Ref<RenderBuffer> CreateRenderBuffer(const RenderBufferProps& _Props) override;
 
         /**
          * @brief Retrieves the singleton instance of the VulkanRendererBackend.
@@ -160,6 +165,8 @@ namespace Vega
         std::vector<VkSemaphore> m_ImageAvailableSemaphores;
         std::vector<VkSemaphore> m_QueueCompleteSemaphores;
         std::vector<VkFence> m_InFlightFences;
+
+        std::vector<Ref<VulkanRenderBuffer>> m_StagingBuffers;
 
         std::vector<Ref<VulkanTexture>> m_DepthBufferTextures;
 

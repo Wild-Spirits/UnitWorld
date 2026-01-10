@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FrameBuffer.hpp"
+#include "RenderBuffer.hpp"
 #include "Shader.hpp"
 #include "Texture.hpp"
 #include "Vega/Core/Base.hpp"
@@ -83,6 +84,8 @@ namespace Vega
                                    const TextureProps& _Props);
 
         virtual Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) = 0;
+
+        virtual Ref<RenderBuffer> CreateRenderBuffer(const RenderBufferProps& _Props) = 0;
 
         virtual Ref<ImGuiImpl> CreateImGuiImpl() = 0;
 

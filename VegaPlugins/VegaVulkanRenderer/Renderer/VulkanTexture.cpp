@@ -4,8 +4,10 @@
 
 #include "Utils/VulkanUtils.hpp"
 #include "VulkanBase.hpp"
+#include "VulkanRenderBuffer.hpp"
 #include "VulkanRendererBackend.hpp"
 #include "backends/imgui_impl_vulkan.h"
+#include <format>
 #include <vulkan/vulkan_core.h>
 
 namespace Vega
@@ -58,23 +60,26 @@ namespace Vega
         if (_Props.ArraySize > 1)
         {
             m_ImageArrayViewsInfos.resize(_Props.ArraySize);
+            m_ImageArrayViewsSubresourceRanges.resize(_Props.ArraySize);
             m_ImageArrayViews.resize(_Props.ArraySize);
             TextureProps::TextureType viewType = TextureProps::TextureType::k2D;
 
             for (uint32_t i = 0; i < _Props.ArraySize; i++)
             {
+                m_ImageArrayViewsSubresourceRanges[i] = {
+                    .aspectMask = _ViewAspectFlags,
+                    .baseMipLevel = 0,
+                    .levelCount = _Props.MipLevels,
+                    .baseArrayLayer = i,
+                    .layerCount = 1,
+                };
+
                 m_ImageArrayViewsInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                     .image = nullptr,
                     .viewType = TextureTypeToVkImageViewType(viewType),
                     .format = _Format,
-                    .subresourceRange = {
-                        .aspectMask = _ViewAspectFlags,
-                        .baseMipLevel = 0,
-                        .levelCount = _Props.MipLevels,
-                        .baseArrayLayer = i,
-                        .layerCount = 1,
-                    },
+                    .subresourceRange = m_ImageArrayViewsSubresourceRanges[i],
                 };
             }
         }
@@ -117,6 +122,8 @@ namespace Vega
 
         VK_CHECK(vkBindImageMemory(logicalDevice, m_Image, m_ImageMemory, 0));
 
+        m_CurrentLayout = m_ImageInfo.initialLayout;
+
         m_ImageViewInfo.image = m_Image;
         VK_CHECK(vkCreateImageView(logicalDevice, &m_ImageViewInfo, context.VkAllocator, &m_ImageView));
         VK_SET_DEBUG_OBJECT_NAME(context.PfnSetDebugUtilsObjectNameEXT, logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW,
@@ -151,8 +158,8 @@ namespace Vega
             };
             VK_CHECK(vkCreateSampler(logicalDevice, &samplerInfo, context.VkAllocator, &m_Sampler));
 
-            m_DescriptorSet = ImGui_ImplVulkan_AddTexture(m_Sampler, GetTextureVkImageView(),
-                                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            m_DescriptorSet =
+                ImGui_ImplVulkan_AddTexture(m_Sampler, m_ImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
     }
 
@@ -197,6 +204,32 @@ namespace Vega
                 .DstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
             };
         }
+        if (_OldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+            _NewLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+        {
+            return {
+                .SrcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                .SrcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                .DstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .DstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            };
+        }
+        if (_OldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL &&
+            _NewLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            return {
+                .SrcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                .SrcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .DstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
+                .DstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
+            };
+            // return {
+            //     .SrcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            //     .SrcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+            //     .DstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+            //     .DstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+            // };
+        }
 
         VEGA_CORE_ASSERT(false, "Unsupported layout transition!");
         return {};
@@ -205,8 +238,6 @@ namespace Vega
     void VulkanTexture::TransitionImageLayout(VkImageLayout _OldLayout, VkImageLayout _NewLayout,
                                               VkCommandBuffer _CommandBuffer)
     {
-        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-
         VulkanTextureTransitionMaskResult transitionMask = GetTransitionMask(_OldLayout, _NewLayout);
 
         VkImageSubresourceRange imageSubresourceRange = {
@@ -256,6 +287,17 @@ namespace Vega
         };
 
         vkCmdPipelineBarrier2(_CommandBuffer, &depInfo);
+
+        m_CurrentLayout = _NewLayout;
+    }
+
+    void VulkanTexture::TransitionImageLayout(VkImageLayout _NewLayout, VkCommandBuffer _CommandBuffer)
+    {
+        if (m_CurrentLayout == _NewLayout)
+        {
+            return;
+        }
+        TransitionImageLayout(m_CurrentLayout, _NewLayout, _CommandBuffer);
     }
 
     void VulkanTexture::Create(std::string_view _Name, const TextureProps& _Props)
@@ -289,70 +331,26 @@ namespace Vega
         Create(_Name, _Props);
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
-        VkCommandBufferAllocateInfo commandBufferAllocInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = rendererBackend->GetVkDeviceWrapper().GetGraphicsCommandPool(),
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            .commandBufferCount = 1,
-        };
+        VkCommandBuffer uploadCommandBuffer = rendererBackend->CreateAndBeginSingleUseCommandBuffer();
 
-        VkCommandBuffer uploadCommandBuffer;
-        VK_CHECK(vkAllocateCommandBuffers(rendererBackend->GetVkDeviceWrapper().GetLogicalDevice(),
-                                          &commandBufferAllocInfo, &uploadCommandBuffer));
-
-        VkCommandBufferBeginInfo beginInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        };
-
-        VK_CHECK(vkBeginCommandBuffer(uploadCommandBuffer, &beginInfo));
-
-        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
-
-        // Calculate buffer size
-        VkDeviceSize bufferSize = static_cast<VkDeviceSize>(_Props.Width) * _Props.Height * _Props.ChannelCount;
+        size_t bufferSize = static_cast<VkDeviceSize>(_Props.Width * _Props.Height * _Props.ChannelCount);
 
         // TODO: Move staging buffer creation to VulkanCommandBuffer class or to renderer backend
-        // Create staging buffer
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        VkBufferCreateInfo bufferInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = bufferSize,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
+        // TODO: Create a staging buffer pool to avoid creating and destroying buffers every time
 
-        VK_CHECK(
-            vkCreateBuffer(logicalDevice, &bufferInfo, rendererBackend->GetVkContext().VkAllocator, &stagingBuffer));
+        VulkanRenderBuffer stagingBuffer(RenderBufferProps {
+            .Name = std::format("VulkanTexture_{}_staging_buffer", _Name),
+            .Type = RenderBufferType::kStaging,
+            .ElementSize = 1,
+            .ElementCount = bufferSize,
+        });
 
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(logicalDevice, stagingBuffer, &memRequirements);
+        // TODO: May need to add IncludeInFrameWorkload parameter
+        stagingBuffer.LoadRange(bufferSize, _Data, false);
 
-        uint32_t memoryTypeIndex = rendererBackend->GetVkDeviceWrapper().GetMemoryTypeIndex(
-            memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        VkMemoryAllocateInfo memoryAllocInfo = {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .allocationSize = memRequirements.size,
-            .memoryTypeIndex = memoryTypeIndex,
-        };
-
-        VK_CHECK(vkAllocateMemory(logicalDevice, &memoryAllocInfo, rendererBackend->GetVkContext().VkAllocator,
-                                  &stagingBufferMemory));
-        VK_CHECK(vkBindBufferMemory(logicalDevice, stagingBuffer, stagingBufferMemory, 0));
-
-        // Copy data to staging buffer
-        void* mappedData;
-        vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &mappedData);
-        memcpy(mappedData, _Data, static_cast<size_t>(bufferSize));
-        vkUnmapMemory(logicalDevice, stagingBufferMemory);
-
-        // Transition image layout and copy buffer to image
         TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, uploadCommandBuffer);
 
         // TODO: Move copy command to renderer backend
-        // Copy buffer to image
 
         VkBufferImageCopy region = {
                 .bufferOffset = 0,
@@ -368,30 +366,17 @@ namespace Vega
                 .imageExtent = { .width = _Props.Width, .height = _Props.Height, .depth = 1 }
             };
 
-        vkCmdCopyBufferToImage(uploadCommandBuffer, stagingBuffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                               &region);
+        vkCmdCopyBufferToImage(uploadCommandBuffer, stagingBuffer.GetVkBuffer(), m_Image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-        // Transition image layout for in shader access
         TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               uploadCommandBuffer);
 
-        VK_CHECK(vkEndCommandBuffer(uploadCommandBuffer));
+        rendererBackend->DestroyAndEndSingleUseCommandBuffer(
+            uploadCommandBuffer, rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue(),
+            rendererBackend->GetVkDeviceWrapper().GetGraphicsCommandPool());
 
-        VkSubmitInfo submitInfo = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &uploadCommandBuffer,
-        };
-
-        VK_CHECK(
-            vkQueueSubmit(rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
-        VK_CHECK(vkQueueWaitIdle(rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue()));
-
-        vkFreeCommandBuffers(logicalDevice, rendererBackend->GetVkDeviceWrapper().GetGraphicsCommandPool(), 1,
-                             &uploadCommandBuffer);
-        // Cleanup staging buffer
-        vkDestroyBuffer(logicalDevice, stagingBuffer, rendererBackend->GetVkContext().VkAllocator);
-        vkFreeMemory(logicalDevice, stagingBufferMemory, rendererBackend->GetVkContext().VkAllocator);
+        stagingBuffer.Destroy();
     }
 
     void VulkanTexture::CreateSwapchainTexture(VkImage _Image, VkSurfaceFormatKHR _ImageFormat,
@@ -441,6 +426,7 @@ namespace Vega
 
             m_ImageView = nullptr;
             m_ImageArrayViews.clear();
+            m_ImageArrayViewsSubresourceRanges.clear();
             m_ImageArrayViewsInfos.clear();
         }
 
@@ -489,6 +475,32 @@ namespace Vega
 
         VulkanCreate(_Name);
     }
+
+    void VulkanTexture::ClearColor(const glm::vec4& _ClearColor)
+    {
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+        VkCommandBuffer commandBuffer = rendererBackend->GetCurrentGraphicsCommandBuffer();
+
+        TransitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffer);
+
+        VkClearColorValue clearColor = {
+            .float32 = { _ClearColor.r, _ClearColor.g, _ClearColor.b, _ClearColor.a }
+        };
+
+        vkCmdClearColorImage(
+            commandBuffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, m_Props.ArraySize,
+            m_Props.ArraySize == 1 ? &m_ImageViewInfo.subresourceRange : m_ImageArrayViewsSubresourceRanges.data());
+
+        TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                              commandBuffer);
+    }
+
+    void VulkanTexture::ClearDepthStencil()
+    {
+        VEGA_CORE_ASSERT(false, "TODO: Implement VulkanTexture::ClearDepthStencil");
+    }
+
+    void* VulkanTexture::GetTextureGuiId() const { return reinterpret_cast<void*>(m_DescriptorSet); }
 
     static VkFormat ChannelsCountToVkFormat(uint32_t _ChannelCount, VkFormat _DefaultFormat)
     {

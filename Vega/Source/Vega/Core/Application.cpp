@@ -51,6 +51,12 @@ namespace Vega
     {
         m_LayerStack.Clear();
 
+        for (auto& [name, manager] : m_Managers)
+        {
+            manager->Destroy();
+        }
+        m_Managers.clear();
+
         m_RendererBackend->OnWindowDestroy(m_Window);
         m_RendererBackend->Shutdown();
 
@@ -69,6 +75,23 @@ namespace Vega
     {
         m_LayerStack.PushOverlay(_Layer);
         _Layer->OnAttach(m_EventManager);
+    }
+
+    void Application::AddManager(std::string_view _Name, Ref<Manager> _Manager)
+    {
+        VEGA_CORE_ASSERT(!IsHasManager(_Name), "Manager with this name already exists!");
+        m_Managers[_Name.data()] = _Manager;
+    }
+
+    bool Application::IsHasManager(std::string_view _Name) const
+    {
+        return m_Managers.find(_Name.data()) != m_Managers.end();
+    }
+
+    Ref<Manager> Application::GetManager(std::string_view _Name)
+    {
+        VEGA_CORE_ASSERT(IsHasManager(_Name), "Manager with this name does not exist!");
+        return m_Managers.at(_Name.data());
     }
 
     void Application::Close() { m_Running = false; }
@@ -90,7 +113,7 @@ namespace Vega
         {
             // float time = Time::GetTime();
             float time = 0.0f;
-            float timestep = time - m_LastFrameTime;
+            float timestepSec = time - m_LastFrameTime;
             m_LastFrameTime = time;
 
             for (Ref<Layer> layer : m_LayerStack)
@@ -117,9 +140,8 @@ namespace Vega
                             layer->OnRender();
                         }
 
-                        if (m_GuiLayer)
+                        if (m_GuiLayer && m_GuiLayer->BeginGuiFrame())
                         {
-                            m_GuiLayer->BeginGuiFrame();
                             for (Ref<Layer> layer : m_LayerStack)
                             {
                                 layer->OnGuiRender();
@@ -134,6 +156,7 @@ namespace Vega
                         m_RendererBackend->FrameSubmit();
                         m_RendererBackend->FramePresent();
                     }
+                    m_GuiLayer->OnExternalViewportsRender();
                 }
             }
 

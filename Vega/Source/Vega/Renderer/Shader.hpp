@@ -112,41 +112,35 @@ namespace Vega
         kSampler1dArray,
         kSampler2dArray,
         kSamplerCubeArray,
-        kCustom = 255U,
+        kTexture2D,
+        kStruct,
     };
 
-    enum class ShaderScope
+    enum class ShaderUpdateFrequency
     {
-        kGlobal,
-        kInstance,
-        kLocal,
+        kPerFrame,
+        kPerGroup,
+        kPerDraw,
     };
 
     struct ShaderUniform
     {
         std::string Name;
         uint32_t Size;
-        uint32_t Location;
         ShaderUniformType Type;
         uint32_t ArrayLength;
-        ShaderScope Scope;
     };
 
     struct ShaderConfig
     {
         std::string Name;
 
-        uint32_t GlobalUnformCount;
-        uint32_t InstanceUniformCount;
+        uint32_t MaxGroups = 512;
+        uint32_t MaxDrawIds = 512;
 
-        uint32_t GlobalUniformSamplerCount;
-        uint32_t InstanceUniformSamplerCount;
-
-        uint32_t MaxInstances = 1;
-
-        std::vector<uint32_t> GlobalSamplerIndices;
-        std::vector<uint32_t> InstanceSamplerIndices;
-        std::vector<ShaderUniform> Uniforms = {};
+        std::vector<ShaderUniform> UniformsPerFrame = {};
+        std::vector<ShaderUniform> UniformsPerGroup = {};
+        std::vector<ShaderUniform> UniformsPerDraw = {};
 
         FaceCullMode CullMode = FaceCullMode::kBack;
         PrimitiveTopologyTypes TopologyTypes = PrimitiveTopologyTypeBits::kTriangleList;
@@ -212,6 +206,15 @@ namespace Vega
         virtual void Shutdown() = 0;
 
         virtual bool Bind() = 0;
+
+        template <typename T>
+        void SetUniformBufferData(std::string_view _Name, const T& _Data, ShaderUpdateFrequency _Frequency)
+        {
+            SetUniformBufferData(_Name, &_Data, sizeof(T), _Frequency);
+        }
+
+        virtual void SetUniformBufferData(std::string_view _Name, const void* _Data, size_t _Size,
+                                          ShaderUpdateFrequency _Frequency) = 0;
 
     protected:
     };

@@ -29,13 +29,21 @@ namespace Vega
         VulkanTextureTransitionMaskResult GetTransitionMask(VkImageLayout _OldLayout, VkImageLayout _NewLayout);
         void TransitionImageLayout(VkImageLayout _OldLayout, VkImageLayout _NewLayout, VkCommandBuffer _CommandBuffer);
 
+        void TransitionImageLayout(VkImageLayout _NewLayout, VkCommandBuffer _CommandBuffer);
+
+        VkImageLayout GetCurrentLayout() const { return m_CurrentLayout; }
+        void SetCurrentLayout(VkImageLayout _Layout) { m_CurrentLayout = _Layout; }
+
         void Create(std::string_view _Name, const TextureProps& _Props) override;
         void Create(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) override;
         void CreateSwapchainTexture(VkImage _Image, VkSurfaceFormatKHR _Format, const TextureProps& _Props);
         void Destroy() override;
         void Resize(std::string_view _Name, uint32_t _NewWidth, uint32_t _NewHeight) override;
 
-        void* GetTextureGuiId() const override { return reinterpret_cast<void*>(m_DescriptorSet); }
+        virtual void ClearColor(const glm::vec4& _ClearColor) override;
+        virtual void ClearDepthStencil() override;
+
+        void* GetTextureGuiId() const override;
         uint32_t GetWidth() const override { return m_Props.Width; }
         uint32_t GetHeight() const override { return m_Props.Height; }
         uint32_t GetMipLevels() const override { return m_Props.MipLevels; }
@@ -53,16 +61,20 @@ namespace Vega
         VkImage m_Image;
 
         VkImageViewCreateInfo m_ImageViewInfo;
+        VkImageSubresourceRange m_ImageViewsSubresourceRange;
         VkImageView m_ImageView = nullptr;
 
         VkMemoryRequirements m_MemoryRequirements;
         VkDeviceMemory m_ImageMemory;
 
         std::vector<VkImageViewCreateInfo> m_ImageArrayViewsInfos;
+        std::vector<VkImageSubresourceRange> m_ImageArrayViewsSubresourceRanges;
         std::vector<VkImageView> m_ImageArrayViews;
 
         VkSampler m_Sampler = VK_NULL_HANDLE;
         VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
+
+        VkImageLayout m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     };
 
 }    // namespace Vega

@@ -92,6 +92,11 @@ namespace Vega
         VkPipelineShaderStageCreateInfo ShaderStageCreateInfo;
     };
 
+    struct VulkanShaderFrequencyInfo
+    {
+        uint32_t UnoStride;
+    };
+
     /**
      * @brief VulkanShader class
      *
@@ -109,8 +114,14 @@ namespace Vega
 
         bool Bind() override;
 
+        void SetUniformBufferData(std::string_view _Name, const void* _Data, size_t _Size,
+                                  ShaderUpdateFrequency _Frequency) override;
+
     protected:
         void PrepareShaderData();
+
+        // TODO: Implement for all frequencies (now only per-draw)
+        VulkanDescriptorSetConfig SetupDescriptorSetByFrequency();
 
         bool CreateModulesAndPipelines();
 
@@ -131,7 +142,7 @@ namespace Vega
         std::vector<ShaderStageConfig> m_ShaderStageConfigs;
         std::vector<VulkanShaderStage> m_ShaderStages;
 
-        std::array<uint8_t, 128> m_LocalPushConstantsBlock;
+        uint8_t m_LocalPushConstantsBlock[128] = { 0 };
 
         std::vector<VulkanDescriptorSetConfig> m_DescriptorSets;
         std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
@@ -139,10 +150,6 @@ namespace Vega
         uint32_t m_MaxDescriptorSetCount;
 
         std::vector<VkDescriptorPoolSize> m_PoolSizes;
-
-        VulkanDescriptorState m_GlobalUboDescriptorStates;
-
-        std::vector<VulkanShaderInstanceState> m_InstanceStates;
 
         std::vector<VkVertexInputAttributeDescription> m_AttributeDescriptions;
 
@@ -155,6 +162,10 @@ namespace Vega
         VkPrimitiveTopology m_CurentTopology;
 
         uint32_t m_RequiredUboAlignment;
+
+        VulkanShaderFrequencyInfo m_PerFrameInfo;
+        VulkanShaderFrequencyInfo m_PerGroupInfo;
+        VulkanShaderFrequencyInfo m_PerDrawInfo;
     };
 
 }    // namespace Vega

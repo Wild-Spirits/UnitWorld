@@ -22,7 +22,24 @@ set(SOURCES
     Source/Vega/Renderer/RendererBackendApi.hpp
     Source/Vega/Renderer/Texture.hpp
     Source/Vega/Renderer/FrameBuffer.hpp
+    Source/Vega/Renderer/RenderBuffer.hpp                                   Source/Vega/Renderer/RenderBuffer.cpp
+    Source/Vega/Renderer/RenderBufferAllocator.hpp                          Source/Vega/Renderer/RenderBufferAllocator.cpp
     Source/Vega/Renderer/Shader.hpp                                         Source/Vega/Renderer/Shader.cpp
+
+    Source/Vega/Scene/Scene.hpp                                             Source/Vega/Scene/Scene.cpp
+
+    Source/Vega/Scene/Components/NameComponent.hpp
+    Source/Vega/Scene/Components/TransformComponent.hpp
+    Source/Vega/Scene/Components/HierarchyComponent.hpp
+    Source/Vega/Scene/Components/StaticMeshComponent.hpp
+    
+    Source/Vega/Scene/Systems/SceneSystem.hpp
+    Source/Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp                 Source/Vega/Scene/Systems/SceneSystemStaticMeshDraw.cpp
+
+    Source/Vega/Managers/Manager.hpp                                        Source/Vega/Managers/Manager.cpp
+    Source/Vega/Managers/StaticMeshManager.hpp                              Source/Vega/Managers/StaticMeshManager.cpp
+    
+
 
     # Source/Vega/Buffers/BufferLayout.h
     # Source/Vega/Buffers/FrameBuffer.h                            Source/Vega/Buffers/FrameBuffer.cpp
@@ -110,7 +127,7 @@ find_package(OpenGL REQUIRED)
 add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
-target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} glm args glfw glew stb imgui nfd)
+target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} glm args glfw glew stb EnTT::EnTT imgui nfd)
 
 # if(MSVC)
 #     target_link_libraries(${PROJECT_NAME} opengl32)
@@ -140,15 +157,15 @@ FetchContent_MakeAvailable(glew)
 
 FetchContent_Declare(
     glm
-    GIT_REPOSITORY https://github.com/mihaillatyshov/glm.git
-    GIT_TAG 4ecc8af5b9732bdc1cb7cdfb1105414c076a13fe
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 1.0.2
 )
 FetchContent_MakeAvailable(glm)
 
 FetchContent_Declare(
     args
     GIT_REPOSITORY https://github.com/Taywee/args.git
-    GIT_TAG e3e6e46699f1ce487a42fd64838f53daeb5aa89b
+    GIT_TAG 6.4.7
 )
 FetchContent_MakeAvailable(args)
 
@@ -157,56 +174,62 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG v1.92.4-docking
 )
-FetchContent_GetProperties(imgui)
-if (NOT imgui_POPULATED)
-    FetchContent_Populate(imgui)
-    set(IMGUI_INCLUDE_DIR ${imgui_SOURCE_DIR}/)
-    set(IMGUI_SOURCES 
-        ${imgui_SOURCE_DIR}/imconfig.h
-        ${imgui_SOURCE_DIR}/imgui.cpp                   ${imgui_SOURCE_DIR}/imgui.h
-        ${imgui_SOURCE_DIR}/imgui_draw.cpp
-        ${imgui_SOURCE_DIR}/imgui_internal.h
-        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-        ${imgui_SOURCE_DIR}/imstb_rectpack.h
-        ${imgui_SOURCE_DIR}/imstb_textedit.h
-        ${imgui_SOURCE_DIR}/imstb_truetype.h
-        ${imgui_SOURCE_DIR}/imgui_demo.cpp
-        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+FetchContent_MakeAvailable(imgui)
+set(IMGUI_SOURCES 
+    ${imgui_SOURCE_DIR}/imconfig.h
+    ${imgui_SOURCE_DIR}/imgui.cpp                   ${imgui_SOURCE_DIR}/imgui.h
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_internal.h
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imstb_rectpack.h
+    ${imgui_SOURCE_DIR}/imstb_textedit.h
+    ${imgui_SOURCE_DIR}/imstb_truetype.h
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
 
-        ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp   ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.h
-    )
-    add_library(imgui STATIC)
-    target_sources(imgui PRIVATE
-        ${IMGUI_SOURCES}
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-    )
-    target_include_directories(imgui PUBLIC ${IMGUI_INCLUDE_DIR})
-    target_link_libraries(imgui glfw)
-endif ()
+    ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp   ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.h
+)
+add_library(imgui STATIC)
+# TODO: add including imgui backends based on platform in Vega source files
+target_sources(imgui PRIVATE
+    ${IMGUI_SOURCES}
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
+target_link_libraries(imgui glfw)
 
 FetchContent_Declare(
     stb
-    GIT_REPOSITORY https://github.com/mihaillatyshov/stb.git
-    GIT_TAG c21c3bd687736635033267bd836168103cce59dd
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG f1c79c02822848a9bed4315b12c8c8f3761e1296
 )
 FetchContent_MakeAvailable(stb)
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
+
+FetchContent_Declare(
+    entt
+    GIT_REPOSITORY https://github.com/skypjack/entt.git
+    GIT_TAG v3.16.0
+)
+FetchContent_MakeAvailable(entt)
 
 FetchContent_Declare(
     nativefiledialog
-    GIT_REPOSITORY https://github.com/mihaillatyshov/nativefiledialog-extended.git
-    GIT_TAG 75cbdf819785d9f94855987724e30a6ba0a87e29
+    GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended.git
+    GIT_TAG v1.2.1
 )
 FetchContent_MakeAvailable(nativefiledialog)
 
 # add_subdirectory(tests)
 
-if(MSVC)
-    set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "${PROJECT_NAME}")
-    set_target_properties(glfw PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-    set_target_properties(uninstall PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-    set_target_properties(update_mappings PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-    set_target_properties(glew PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-    set_target_properties(imgui PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-    set_target_properties(nfd PROPERTIES FOLDER "${PROJECT_NAME}/deps")
-endif()
+# if(MSVC)
+#     set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "${PROJECT_NAME}")
+#     set_target_properties(glfw PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+#     set_target_properties(uninstall PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+#     set_target_properties(update_mappings PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+#     set_target_properties(glew PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+#     set_target_properties(imgui PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+#     set_target_properties(nfd PROPERTIES FOLDER "${PROJECT_NAME}/deps")
+# endif()

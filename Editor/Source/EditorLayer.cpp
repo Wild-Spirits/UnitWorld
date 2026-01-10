@@ -1,17 +1,52 @@
 #include "EditorLayer.hpp"
 
 #include "Vega/Core/Application.hpp"
+#include "Vega/Core/Base.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
+#include "Vega/Managers/StaticMeshManager.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
-#include "Vega/Renderer/Shader.hpp"
-#include "Vega/Utils/Log.hpp"
+#include "Vega/Scene/Components/StaticMeshComponent.hpp"
+#include "Vega/Scene/Components/TransformComponent.hpp"
+#include "Vega/Scene/Scene.hpp"
+#include "Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp"
+
 #include "glm/fwd.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 
+#include <vector>
+
 namespace Vega
 {
+
+    // TODO: Move to proper place
+    void DrawTransform(Entity _Entity)
+    {
+        const Components::TransformComponent& transformComp = _Entity.GetTransform();
+
+        if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            glm::vec3 newPosition = transformComp.Position;
+            if (ImGui::DragFloat3("Position", &newPosition.x, 0.01f))
+            {
+                _Entity.SetTransformPosition(newPosition);
+            }
+
+            glm::vec3 rotationEulerDeg = glm::degrees(glm::eulerAngles(transformComp.Rotation));
+            if (ImGui::DragFloat3("Rotation", &rotationEulerDeg.x, 0.01f))
+            {
+                glm::quat newRotation = glm::quat(glm::radians(rotationEulerDeg));
+                _Entity.SetTransformRotation(newRotation);
+            }
+
+            glm::vec3 newScale = transformComp.Scale;
+            if (ImGui::DragFloat3("Scale", &newScale.x, 0.1f))
+            {
+                _Entity.SetTransformScale(newScale);
+            }
+        }
+    }
 
     constexpr float kMainMenuFramePadding = 16.0f;
 
@@ -30,40 +65,66 @@ namespace Vega
             .IsUsedForGui = true,
         });
 
-        m_AppLogo = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo.png",
+        m_AppLogo = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo_ws.png",
                                                    TextureProps { .IsUsedForGui = true });
 
         // m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
 
-        m_Shader = Application::Get().GetRendererBackend()->CreateShader(
-            ShaderConfig {
-                .Name = "EditorLayerTestShader",
-        },
-            { ShaderStageConfig {
-                  .Type = ShaderStageConfig::ShaderStageType::kVertex,
-                  .Path = "Assets/Shaders/Source/test.vert",
-              },
-              ShaderStageConfig {
-                  .Type = ShaderStageConfig::ShaderStageType::kFragment,
-                  .Path = "Assets/Shaders/Source/test.frag",
-              } });
+        Ref<StaticMeshManager> staticMeshManager = CreateRef<StaticMeshManager>();
+        Application::Get().AddManager("StaticMeshManager", staticMeshManager);
+
+        std::vector<StaticMeshVertex> vertices {
+            { .Position = { -0.5f, -0.5f, 1.0f } },
+            { .Position = { 0.5f, 0.5f, 1.0f } },
+            { .Position = { -0.5f, 0.5f, 1.0f } },
+        };
+
+        std::vector<uint32_t> indices { 0, 1, 2 };
+
+        staticMeshManager->AddMesh("TestMesh", vertices.data(), vertices.size(), indices.data(), indices.size(), false);
+
+        m_ActiveScene = CreateRef<Scene>();
+        m_ActiveScene->AddSceneSystem(CreateRef<SceneSystems::SceneSystemStaticMeshDraw>());
+
+        m_ActiveScene->CreateEntity("Test1");
+        m_ActiveScene->CreateEntity("Test2");
+        Entity Entity3 = m_ActiveScene->CreateActor("Test3");
+        Entity Entity31 = m_ActiveScene->CreateActor("Test31", Entity3);
+        Entity Entity32 = m_ActiveScene->CreateActor("Test32", Entity3);
+        Entity Entity311 = m_ActiveScene->CreateActor("Test311", Entity31);
+        Entity Entity312 = m_ActiveScene->CreateActor("Test312", Entity31);
+        Entity Entity313 = m_ActiveScene->CreateActor("Test313", Entity31);
+        Entity Entity314 = m_ActiveScene->CreateActor("Test314", Entity31);
+        Entity311.AddComponent<Components::StaticMeshComponent>("TestMesh");
+        Entity312.AddComponent<Components::StaticMeshComponent>("TestMesh");
+        Entity313.AddComponent<Components::StaticMeshComponent>("TestMesh");
+        Entity314.AddComponent<Components::StaticMeshComponent>("TestMesh");
+
+        EntityPropsPanel::RegisterComponentDescription<Components::TransformComponent>(
+            EntityPropsPanelComponentDescription {
+                .Name = "Transform",
+                .DrawFunc = DrawTransform,
+            });
     }
 
     void EditorLayer::OnDetach()
     {
+        m_ActiveScene.reset();
         m_AppLogo->Destroy();
-        m_Shader->Shutdown();
         m_FrameBuffer->Destroy();
     }
 
     void EditorLayer::OnUpdate()
     {
-        if (m_FrameBuffer->GetWidth() != m_ViewportDimensions.x || m_FrameBuffer->GetHeight() != m_ViewportDimensions.y)
-        {
-            m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
-            // TODO: Try to make it better (without frame skipping)
-            m_FramesToSkip = Application::Get().GetRendererBackend()->GetSwapchainColorTextures().size() * 2;
-        }
+        // if (m_FrameBuffer->GetWidth() != m_ViewportDimensions.x || m_FrameBuffer->GetHeight() !=
+        // m_ViewportDimensions.y)
+        // {
+        //     m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
+        //     // TODO: Try to make it better (without frame skipping)
+        //     m_FramesToSkip = Application::Get().GetRendererBackend()->GetSwapchainColorTextures().size() * 15;
+        // }
+
+        m_ActiveScene->OnUpdate();
     }
 
     void EditorLayer::OnRender()
@@ -71,16 +132,16 @@ namespace Vega
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
         Ref<Window> window = Application::Get().GetWindow();
 
-        m_FrameBuffer->Bind();
+        // Ensure the framebuffer is writable as attachment for the scene pass.
+        // m_FrameBuffer->Bind();
+        m_FrameBuffer->BindAndClearColorDepthStencil();
 
         rendererBackend->BeginRendering({ 0.0f, 0.0f }, { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() },
                                         m_FrameBuffer);
 
         rendererBackend->SetActiveViewport({ 0.0f, 0.0f }, { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() });
 
-        m_Shader->Bind();
-
-        rendererBackend->TestFoo();
+        m_ActiveScene->OnRender();
 
         rendererBackend->EndRendering();
 
@@ -124,13 +185,15 @@ namespace Vega
             firstTime = false;
 
             ImGui::DockBuilderRemoveNode(dockspaceId);    // clear any previous layout
-            ImGui::DockBuilderAddNode(dockspaceId,
-                                      ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_DockSpace);
+            ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_PassthruCentralNode |
+                                                       static_cast<ImGuiDockNodeFlags>(ImGuiDockNodeFlags_DockSpace));
             ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->Size);
 
-            auto dockIdRight = ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.2f, nullptr, &dockspaceId);
+            auto dockIdLeft = ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Left, 0.2f, nullptr, &dockspaceId);
             auto dockIdBottom = ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Down, 0.2f, nullptr, &dockspaceId);
+            auto dockIdRight = ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Right, 0.2f, nullptr, &dockspaceId);
 
+            ImGui::DockBuilderDockWindow("Props", dockIdLeft);
             ImGui::DockBuilderDockWindow("Scene", dockIdRight);
             ImGui::DockBuilderDockWindow("Viewport", dockspaceId);
             ImGui::DockBuilderDockWindow("Assets", dockIdBottom);
@@ -149,6 +212,7 @@ namespace Vega
 
         if (ImGui::Begin("Scene"))
         {
+            m_SceneHierarchyPanel.OnImGuiRender(m_ActiveScene);
         }
         ImGui::End();
 
@@ -156,14 +220,8 @@ namespace Vega
         {
             ImVec2 viewportDimensions = ImGui::GetContentRegionAvail();
 
-            if (m_FramesToSkip == 0)
-            {
-                ImGui::Image((ImTextureID)m_FrameBuffer->GetInGuiRenderId(), viewportDimensions);
-            }
-            else
-            {
-                --m_FramesToSkip;
-            }
+            ImGui::Image((ImTextureID)m_FrameBuffer->GetInGuiRenderId(), viewportDimensions);
+
             m_ViewportDimensions = {
                 static_cast<uint32_t>(viewportDimensions.x),
                 static_cast<uint32_t>(viewportDimensions.y),
@@ -187,8 +245,8 @@ namespace Vega
 
         if (ImGui::Begin("Props"))
         {
+            m_EntityPropsPanel.OnImGuiRender(m_SceneHierarchyPanel.GetSelectedEntity());
         }
-
         ImGui::End();
 
         if (m_IsDrawImGuiDemoWindow)
@@ -245,7 +303,7 @@ namespace Vega
             if (ImGui::BeginMenuBar())
             {
                 ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, kMainMenuFramePadding);
-                float logoHeight = frameHeight - kMainMenuFramePadding * 1.5f;
+                float logoHeight = frameHeight - kMainMenuFramePadding * 0.5f;
                 float logoPosY = (frameHeight - logoHeight) / 2.0f;
                 float cursorPosY = ImGui::GetCursorPosY();
                 ImGui::SetCursorPosY(cursorPosY + logoPosY);

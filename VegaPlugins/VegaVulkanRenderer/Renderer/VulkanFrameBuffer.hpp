@@ -32,6 +32,8 @@ namespace Vega
 
         void TransitToGui() override;
 
+        void BindAndClearColorDepthStencil() override;
+
         void Bind() override;
 
     protected:
@@ -40,9 +42,6 @@ namespace Vega
         std::vector<std::vector<Ref<VulkanTexture>>> m_VulkanTextures;
 
         std::vector<std::vector<Ref<VulkanTexture>>> m_VulkanDepthTextures;
-
-        std::vector<VkSampler> m_Samplers;
-        std::vector<VkDescriptorSet> m_DescriptorSets;
     };
 
 }    // namespace Vega

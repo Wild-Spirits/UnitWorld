@@ -84,6 +84,7 @@ namespace Vega
         std::vector<std::vector<Ref<VulkanTexture>>> swapchainTextures = {
             rendererBackend->GetVkSwapchain().GetVulkanColorTextures()
         };
+
         rendererBackend->VulkanBeginRendering({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() },
                                               swapchainTextures, {});
 
@@ -103,8 +104,6 @@ namespace Vega
 
         rendererBackend->VulkanEndRendering();
         // }
-
-        ImGuiIO& io = ImGui::GetIO();
     }
 
     void VulkanImGuiImpl::Shutdown()

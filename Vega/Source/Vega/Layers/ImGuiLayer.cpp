@@ -94,16 +94,14 @@ namespace Vega
 
     void ImGuiLayer::OnGuiRender() { }
 
-    void ImGuiLayer::BeginGuiFrame()
+    bool ImGuiLayer::BeginGuiFrame()
     {
-        // ChangeFontSize(true);
+        ImGuiIO& io = ImGui::GetIO();
 
         Application& app = Application::Get();
         if (app.GetIsHasCutsomTitleBar())
         {
             Ref<Window> window = app.GetWindow();
-
-            ImGuiIO& io = ImGui::GetIO();
 
             glm::dvec2 windowSize = { static_cast<double>(window->GetWidth()),
                                       static_cast<double>(window->GetHeight()) };
@@ -128,19 +126,25 @@ namespace Vega
         m_ImGuiImpl->NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        return true;
     }
 
     void ImGuiLayer::EndGuiFrame()
     {
-        ImGuiIO& io = ImGui::GetIO();
-
         ImGui::Render();
         m_ImGuiImpl->RenderFrame();
+    }
+
+    void ImGuiLayer::OnExternalViewportsRender()
+    {
+        ImGuiIO& io = ImGui::GetIO();
 
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {
             m_ImGuiImpl->BackupCurrentWindowContext();
             ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
             ImGui::RenderPlatformWindowsDefault();
             m_ImGuiImpl->RestoreCurrentWindowContext();
         }

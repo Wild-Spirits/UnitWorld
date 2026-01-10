@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <format>
 #include <fstream>
 #include <limits>
@@ -64,46 +65,54 @@ namespace Vega
             offset += ShaderDataTypeSize(attributeType);
         }
 
-        VkDescriptorPoolCreateInfo poolInfo = {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets = m_MaxDescriptorSetCount,
-            .poolSizeCount = static_cast<uint32_t>(m_PoolSizes.size()),
-            .pPoolSizes = m_PoolSizes.data(),
-        };
-
-#if defined(VK_USE_PLATFORM_MACOS_MVK)
-        // NOTE: increase the per-stage descriptor samplers limit on macOS (maxPerStageDescriptorUpdateAfterBindSamplers
-        // > maxPerStageDescriptorSamplers)
-        poolInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-#endif
-
-        VkResult createPoolResult = vkCreateDescriptorPool(logicalDevice, &poolInfo, vkAllocator, &m_DescriptorPool);
-        if (!VulkanResultIsSuccess(createPoolResult))
+        if (m_MaxDescriptorSetCount > 0)
         {
-            VEGA_CORE_CRITICAL("Failed to create descriptor pool: {}", VulkanResultString(createPoolResult, true));
-            VEGA_CORE_ASSERT(false, "Failed to create descriptor pool!");
-        }
-
-        for (size_t i = 0; i < m_DescriptorSets.size(); ++i)
-        {
-            VkDescriptorSetLayoutCreateInfo layoutInfo = {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            VkDescriptorPoolCreateInfo poolInfo = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .pNext = nullptr,
-                .flags = 0,
-                .bindingCount = static_cast<uint32_t>(m_DescriptorSets[i].Bindings.size()),
-                .pBindings = m_DescriptorSets[i].Bindings.data(),
+                .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+                .maxSets = m_MaxDescriptorSetCount,
+                .poolSizeCount = static_cast<uint32_t>(m_PoolSizes.size()),
+                .pPoolSizes = m_PoolSizes.data(),
             };
 
-            VkResult createLayoutResult =
-                vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, vkAllocator, &m_DescriptorSetLayouts[i]);
+#if defined(VK_USE_PLATFORM_MACOS_MVK)
+            // NOTE: increase the per-stage descriptor samplers limit on macOS
+            // (maxPerStageDescriptorUpdateAfterBindSamplers > maxPerStageDescriptorSamplers)
+            poolInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+#endif
 
-            if (!VulkanResultIsSuccess(createLayoutResult))
+            VkResult createPoolResult =
+                vkCreateDescriptorPool(logicalDevice, &poolInfo, vkAllocator, &m_DescriptorPool);
+            if (!VulkanResultIsSuccess(createPoolResult))
             {
-                VEGA_CORE_CRITICAL("Failed to create descriptor set layout: {}",
-                                   VulkanResultString(createLayoutResult, true));
-                VEGA_CORE_ASSERT(false, "Failed to create descriptor set layout!");
+                VEGA_CORE_CRITICAL("Failed to create descriptor pool: {}", VulkanResultString(createPoolResult, true));
+                VEGA_CORE_ASSERT(false, "Failed to create descriptor pool!");
+            }
+
+            VK_SET_DEBUG_OBJECT_NAME(rendererBackend->GetVkContext().PfnSetDebugUtilsObjectNameEXT, logicalDevice,
+                                     VK_OBJECT_TYPE_DESCRIPTOR_POOL, m_DescriptorPool,
+                                     std::format("descriptor_pool_{}", m_ShaderConfig.Name).c_str());
+
+            for (size_t i = 0; i < m_DescriptorSets.size(); ++i)
+            {
+                VkDescriptorSetLayoutCreateInfo layoutInfo = {
+                    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                    .pNext = nullptr,
+                    .flags = 0,
+                    .bindingCount = static_cast<uint32_t>(m_DescriptorSets[i].Bindings.size()),
+                    .pBindings = m_DescriptorSets[i].Bindings.data(),
+                };
+
+                VkResult createLayoutResult =
+                    vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, vkAllocator, &m_DescriptorSetLayouts[i]);
+
+                if (!VulkanResultIsSuccess(createLayoutResult))
+                {
+                    VEGA_CORE_CRITICAL("Failed to create descriptor set layout: {}",
+                                       VulkanResultString(createLayoutResult, true));
+                    VEGA_CORE_ASSERT(false, "Failed to create descriptor set layout!");
+                }
             }
         }
 
@@ -185,6 +194,8 @@ namespace Vega
         m_RequiredUboAlignment = deviceWrapper.GetMinUniformBufferOffsetAligment();
 
         // TODO: Continue here : implement ubo
+
+        m_PerDrawInfo.UnoStride = 128;
     }
 
     void VulkanShader::Shutdown()
@@ -207,7 +218,7 @@ namespace Vega
             vkDestroyDescriptorPool(logicalDevice, m_DescriptorPool, vkAllocator);
         }
 
-        m_InstanceStates.clear();
+        // TODO: clear FrequencyInfo and FrequencyState
 
         // TODO: clear Uniform buffer
 
@@ -257,40 +268,65 @@ namespace Vega
         return true;
     }
 
+    void VulkanShader::SetUniformBufferData(std::string_view _Name, const void* _Data, size_t _Size,
+                                            ShaderUpdateFrequency _Frequency)
+    {
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+        VkCommandBuffer commandBuffer = rendererBackend->GetCurrentGraphicsCommandBuffer();
+
+        std::vector<VulkanPipeline>& pipelineArray =
+            m_ShaderConfig.Flags & ShaderFlagBits::kWireframe ? m_WireframesPipelines : m_Pipelines;
+
+        if (_Frequency == ShaderUpdateFrequency::kPerDraw)
+        {
+            std::memcpy(m_LocalPushConstantsBlock, _Data, _Size);
+            vkCmdPushConstants(commandBuffer, pipelineArray[m_BoundPipelineIndex].Layout,
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128,
+                               m_LocalPushConstantsBlock);
+        }
+
+        VulkanShaderFrequencyInfo* frequencyInfo = nullptr;
+        switch (_Frequency)
+        {
+            case ShaderUpdateFrequency::kPerFrame: frequencyInfo = &m_PerFrameInfo; break;
+            case ShaderUpdateFrequency::kPerGroup: frequencyInfo = &m_PerGroupInfo; break;
+            case ShaderUpdateFrequency::kPerDraw: frequencyInfo = &m_PerDrawInfo; break;
+            default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return;
+        }
+
+        if (!frequencyInfo)
+        {
+            VEGA_CORE_ASSERT(false, "Frequency info is not initialized!");
+            return;
+        }
+    }
+
     void VulkanShader::PrepareShaderData()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-
-        m_LocalPushConstantsBlock.fill(0);
-
-        bool isHasGlobalDescriptorSet =
-            m_ShaderConfig.GlobalUnformCount > 0 || m_ShaderConfig.GlobalUniformSamplerCount > 0;
-        bool isHasInstanceDescriptorSet =
-            m_ShaderConfig.InstanceUniformCount > 0 || m_ShaderConfig.InstanceUniformSamplerCount > 0;
-
-        m_DescriptorSets.reserve(2);
-        m_DescriptorSetLayouts.reserve(2);
-        if (isHasGlobalDescriptorSet)
-        {
-            m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
-            m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
-        }
-        if (isHasInstanceDescriptorSet)
-        {
-            m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
-            m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
-        }
-
         uint32_t imageCount = static_cast<uint32_t>(rendererBackend->GetVkSwapchain().GetImagesCount());
 
-        uint32_t maxSamplerCount =
-            m_ShaderConfig.GlobalUniformSamplerCount * imageCount +
-            m_ShaderConfig.MaxInstances * m_ShaderConfig.InstanceUniformSamplerCount * imageCount;
-        uint32_t maxUboCount = imageCount + imageCount * m_ShaderConfig.MaxInstances;
+        // m_LocalPushConstantsBlock.fill(0);
 
-        m_MaxDescriptorSetCount = maxUboCount + maxSamplerCount;
+        bool isHasPerFrame = !m_ShaderConfig.UniformsPerFrame.empty();
+        bool isHasPerGroup = !m_ShaderConfig.UniformsPerGroup.empty();
+        bool isHasPerDraw = !m_ShaderConfig.UniformsPerDraw.empty();
 
-        m_PoolSizes.reserve(2);
+        // TODO: Get SamplerCount for each frequency type
+        uint32_t maxSamplerCount = 0;
+        // TODO: Get ImageCount for each frequency type
+        uint32_t maxImageCount = 0;
+        // TODO: Get UboCount for each frequency type
+        uint32_t perDrawUboCount = 0;
+        uint32_t maxUboCount = perDrawUboCount;    // TODO: perFrameUboCount + perGroupUboCount +;
+
+        uint32_t perFrameDescriptorSetCount = (isHasPerFrame ? 1 : 0) * imageCount;
+        uint32_t perGroupDescriptorSetCount = (isHasPerGroup ? 1 : 0) * imageCount * m_ShaderConfig.MaxGroups;
+        // TODO: may be this zero?
+        uint32_t perDrawDescriptorSetCount = (isHasPerDraw ? 1 : 0) * imageCount * m_ShaderConfig.MaxDrawIds;
+        m_MaxDescriptorSetCount = perFrameDescriptorSetCount + perGroupDescriptorSetCount + perDrawDescriptorSetCount;
+
+        m_PoolSizes.reserve(3);
         if (maxUboCount > 0)
         {
             m_PoolSizes.emplace_back(
@@ -298,84 +334,102 @@ namespace Vega
         }
         if (maxSamplerCount > 0)
         {
-            m_PoolSizes.emplace_back(VkDescriptorPoolSize { .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                            .descriptorCount = maxSamplerCount });
+            m_PoolSizes.emplace_back(
+                VkDescriptorPoolSize { .type = VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = maxSamplerCount });
+            m_PoolSizes.emplace_back(
+                VkDescriptorPoolSize { .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = maxImageCount });
         }
 
-        if (isHasGlobalDescriptorSet)
-        {
-            VulkanDescriptorSetConfig& setConfig = m_DescriptorSets.front();
-            uint32_t uboCount = m_ShaderConfig.GlobalUnformCount ? 1 : 0;
-            setConfig.Bindings.reserve(uboCount + m_ShaderConfig.GlobalUniformSamplerCount);
-            if (uboCount > 0)
-            {
-                setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-                    .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                });
-            }
+        // TODO: setup descriptor sets for per-frame, per-group, per-draw
 
-            setConfig.SamplerBindingIndexStart = uboCount;
+        // if (isHasGlobalDescriptorSet)
+        // {
+        //     m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
+        //     m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
+        // }
+        // if (isHasInstanceDescriptorSet)
+        // {
+        //     m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
+        //     m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
+        // }
 
-            for (uint32_t i = 0; i < m_ShaderConfig.GlobalUniformSamplerCount; ++i)
-            {
-                const ShaderUniform& uniform = m_ShaderConfig.Uniforms[m_ShaderConfig.GlobalSamplerIndices[i]];
-                setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-                    .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                    .descriptorCount = glm::max(static_cast<uint32_t>(1), uniform.ArrayLength),
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                });
-            }
-        }
+        // if (isHasGlobalDescriptorSet)
+        // {
+        //     VulkanDescriptorSetConfig& setConfig = m_DescriptorSets.front();
+        //     uint32_t uboCount = m_ShaderConfig.GlobalUnformCount ? 1 : 0;
+        //     setConfig.Bindings.reserve(uboCount + m_ShaderConfig.GlobalUniformSamplerCount);
+        //     if (uboCount > 0)
+        //     {
+        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
+        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
+        //             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        //             .descriptorCount = 1,
+        //             .stageFlags = VK_SHADER_STAGE_ALL,
+        //         });
+        //     }
 
-        if (isHasInstanceDescriptorSet)
-        {
-            VulkanDescriptorSetConfig& setConfig = m_DescriptorSets.back();
-            uint32_t uboCount = m_ShaderConfig.InstanceUniformCount ? 1 : 0;
-            setConfig.Bindings.reserve(uboCount + m_ShaderConfig.InstanceUniformSamplerCount);
-            if (uboCount > 0)
-            {
-                setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-                    .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                });
-            }
+        //     setConfig.SamplerBindingIndexStart = uboCount;
 
-            setConfig.SamplerBindingIndexStart = uboCount;
+        //     for (uint32_t i = 0; i < m_ShaderConfig.GlobalUniformSamplerCount; ++i)
+        //     {
+        //         const ShaderUniform& uniform = m_ShaderConfig.Uniforms[m_ShaderConfig.GlobalSamplerIndices[i]];
+        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
+        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
+        //             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        //             .descriptorCount = glm::max(static_cast<uint32_t>(1), uniform.ArrayLength),
+        //             .stageFlags = VK_SHADER_STAGE_ALL,
+        //         });
+        //     }
+        // }
 
-            for (uint32_t i = 0; i < m_ShaderConfig.InstanceUniformSamplerCount; ++i)
-            {
-                const ShaderUniform& uniform = m_ShaderConfig.Uniforms[m_ShaderConfig.InstanceSamplerIndices[i]];
-                setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-                    .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                    .descriptorCount = glm::max(static_cast<uint32_t>(1), uniform.ArrayLength),
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                });
-            }
-        }
+        // if (isHasInstanceDescriptorSet)
+        // {
+        //     VulkanDescriptorSetConfig& setConfig = m_DescriptorSets.back();
+        //     uint32_t uboCount = m_ShaderConfig.InstanceUniformCount ? 1 : 0;
+        //     setConfig.Bindings.reserve(uboCount + m_ShaderConfig.InstanceUniformSamplerCount);
+        //     if (uboCount > 0)
+        //     {
+        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
+        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
+        //             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        //             .descriptorCount = 1,
+        //             .stageFlags = VK_SHADER_STAGE_ALL,
+        //         });
+        //     }
 
-        m_GlobalUboDescriptorStates.Generations.resize(imageCount);
-        m_GlobalUboDescriptorStates.Ids.resize(imageCount);
-        m_GlobalUboDescriptorStates.FrameNumbers.resize(imageCount);
-        for (size_t i = 0; i < imageCount; ++i)
-        {
-            m_GlobalUboDescriptorStates.Generations[i] = std::numeric_limits<uint32_t>::max();
-            m_GlobalUboDescriptorStates.Ids[i] = std::numeric_limits<uint32_t>::max();
-            m_GlobalUboDescriptorStates.FrameNumbers[i] = std::numeric_limits<uint64_t>::max();
-        }
+        //     setConfig.SamplerBindingIndexStart = uboCount;
 
-        m_InstanceStates.resize(m_ShaderConfig.MaxInstances);
-        for (size_t i = 0; i < m_ShaderConfig.MaxInstances; ++i)
-        {
-            m_InstanceStates[i].Id = std::numeric_limits<uint32_t>::max();
-        }
+        //     for (uint32_t i = 0; i < m_ShaderConfig.InstanceUniformSamplerCount; ++i)
+        //     {
+        //         const ShaderUniform& uniform = m_ShaderConfig.Uniforms[m_ShaderConfig.InstanceSamplerIndices[i]];
+        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
+        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
+        //             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        //             .descriptorCount = glm::max(static_cast<uint32_t>(1), uniform.ArrayLength),
+        //             .stageFlags = VK_SHADER_STAGE_ALL,
+        //         });
+        //     }
+        // }
+
+        // m_GlobalUboDescriptorStates.Generations.resize(imageCount);
+        // m_GlobalUboDescriptorStates.Ids.resize(imageCount);
+        // m_GlobalUboDescriptorStates.FrameNumbers.resize(imageCount);
+        // for (size_t i = 0; i < imageCount; ++i)
+        // {
+        //     m_GlobalUboDescriptorStates.Generations[i] = std::numeric_limits<uint32_t>::max();
+        //     m_GlobalUboDescriptorStates.Ids[i] = std::numeric_limits<uint32_t>::max();
+        //     m_GlobalUboDescriptorStates.FrameNumbers[i] = std::numeric_limits<uint64_t>::max();
+        // }
+
+        // m_InstanceStates.resize(m_ShaderConfig.MaxInstances);
+        // for (size_t i = 0; i < m_ShaderConfig.MaxInstances; ++i)
+        // {
+        //     m_InstanceStates[i].Id = std::numeric_limits<uint32_t>::max();
+        // }
     }
+
+    // TODO: Implement for all frequencies (now only per-draw)
+    VulkanDescriptorSetConfig VulkanShader::SetupDescriptorSetByFrequency() { return VulkanDescriptorSetConfig {}; }
 
     bool VulkanShader::CreateModulesAndPipelines()
     {

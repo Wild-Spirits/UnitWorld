@@ -1,15 +1,18 @@
 #pragma once
 
-#include "Vega/Core/Base.hpp"
-
 #include "Vega/Core/Assert.hpp"
+#include "Vega/Core/Base.hpp"
 #include "Vega/Core/Window.hpp"
 #include "Vega/Events/EventManager.hpp"
 #include "Vega/Events/WindowEvent.hpp"
 #include "Vega/Layers/GuiLayer.hpp"
 #include "Vega/Layers/LayerStack.hpp"
+#include "Vega/Managers/Manager.hpp"
 #include "Vega/Plugins/PluginLibrary.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
+
+
+#include <string>
 
 int main(int argc, char** argv);
 
@@ -47,6 +50,10 @@ namespace Vega
         void PushLayer(Ref<Layer> _Layer);
         void PushOverlay(Ref<Layer> _Layer);
 
+        void AddManager(std::string_view _Name, Ref<Manager> _Manager);
+        bool IsHasManager(std::string_view _Name) const;
+        Ref<Manager> GetManager(std::string_view _Name);
+
         Ref<Window> GetWindow() { return m_Window; }
 
         void Close();
@@ -72,7 +79,7 @@ namespace Vega
         //     return std::dynamic_pointer_cast<T>(m_RendererBackend);
         // }
 
-    private:
+    protected:
         void Run();
         bool OnWindowClose(const WindowCloseEvent& _Event);
         bool OnWindowResize(const WindowResizeEvent& _Event);
@@ -80,7 +87,7 @@ namespace Vega
     protected:
         Ref<GuiLayer> m_GuiLayer;
 
-    private:
+    protected:
         ApplicationProps m_Props;
         Ref<Window> m_Window;
 
@@ -88,6 +95,8 @@ namespace Vega
         Ref<RendererBackend> m_RendererBackend;
 
         Ref<EventManager> m_EventManager;
+        std::unordered_map<std::string, Ref<Manager>> m_Managers;
+
         bool m_Running = true;
         bool m_Minimized = false;
         bool m_Resizing = false;
@@ -97,7 +106,7 @@ namespace Vega
         bool m_IsMainMenuAnyItemHovered = false;
         float m_MainMenuFrameHeight = 48.0f;
 
-    private:
+    protected:
         static Application* s_Instance;
         friend int ::main(int argc, char** argv);
     };

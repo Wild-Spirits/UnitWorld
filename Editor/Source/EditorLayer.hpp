@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Panels/EntityPropsPanel.hpp"
+#include "Panels/SceneHierarchyPanel.hpp"
 #include "Vega/Layers/Layer.hpp"
 #include "Vega/Renderer/FrameBuffer.hpp"
-#include "Vega/Renderer/Shader.hpp"
+#include "Vega/Scene/Scene.hpp"
 
 namespace Vega
 {
@@ -28,15 +30,17 @@ namespace Vega
         float DrawGuiTitlebar();
 
     protected:
-        Ref<Shader> m_Shader;
         // std::vector<Ref<Texture>> m_ColorBuffers;
         Ref<FrameBuffer> m_FrameBuffer;
 
         glm::u32vec2 m_ViewportDimensions;
-        size_t m_FramesToSkip = 0;
 
         Ref<Texture> m_AppLogo;
         bool m_IsDrawImGuiDemoWindow = false;
+
+        Ref<Scene> m_ActiveScene;
+        SceneHierarchyPanel m_SceneHierarchyPanel;
+        EntityPropsPanel m_EntityPropsPanel;
     };
 
 }    // namespace Vega

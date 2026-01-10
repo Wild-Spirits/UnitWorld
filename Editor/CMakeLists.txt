@@ -10,6 +10,9 @@ set(SOURCES
     Source/main.cpp
     
     Source/EditorLayer.cpp                              Source/EditorLayer.hpp
+
+    Source/Panels/SceneHierarchyPanel.cpp               Source/Panels/SceneHierarchyPanel.hpp
+    Source/Panels/EntityPropsPanel.cpp                  Source/Panels/EntityPropsPanel.hpp
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})

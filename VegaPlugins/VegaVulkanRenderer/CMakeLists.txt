@@ -22,6 +22,7 @@ set(SOURCES
     Renderer/VulkanSwapchain.hpp                            Renderer/VulkanSwapchain.cpp
     Renderer/VulkanTexture.hpp                              Renderer/VulkanTexture.cpp
     Renderer/VulkanFrameBuffer.hpp                          Renderer/VulkanFrameBuffer.cpp
+    Renderer/VulkanRenderBuffer.hpp                         Renderer/VulkanRenderBuffer.cpp
     Renderer/VulkanShader.hpp                               Renderer/VulkanShader.cpp
 )
 

@@ -2,6 +2,8 @@
 
 #include "Vega/Core/Base.hpp"
 
+#include "glm/ext/vector_float4.hpp"
+
 #include <string_view>
 
 namespace Vega
@@ -83,6 +85,9 @@ namespace Vega
         virtual void Create(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) = 0;
         virtual void Destroy() = 0;
         virtual void Resize(std::string_view _Name, uint32_t _NewWidth, uint32_t _NewHeight) = 0;
+
+        virtual void ClearColor(const glm::vec4& _ClearColor) = 0;
+        virtual void ClearDepthStencil() = 0;
 
         virtual void* GetTextureGuiId() const = 0;
         virtual uint32_t GetWidth() const = 0;

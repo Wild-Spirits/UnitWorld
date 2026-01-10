@@ -22,8 +22,10 @@ namespace Vega
         virtual void OnUpdate() override;
         virtual void OnGuiRender() override;
 
-        virtual void BeginGuiFrame() override;
+        virtual bool BeginGuiFrame() override;
         virtual void EndGuiFrame() override;
+
+        virtual void OnExternalViewportsRender() override;
 
         void BlockEvents(bool block) { m_BlockEvents = block; }
 
@@ -38,7 +40,7 @@ namespace Vega
 
         bool m_BlockEvents = true;
 
-        int m_FontSize = 14;
+        int m_FontSize = 16;
     };
 
 }    // namespace Vega

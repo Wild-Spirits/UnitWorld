@@ -6,10 +6,10 @@
 
 #include "Platform/Platform.hpp"
 #include "VulkanFrameBuffer.hpp"
+#include "VulkanRenderBuffer.hpp"
 #include "VulkanShader.hpp"
 #include "VulkanTexture.hpp"
 #include <memory>
-#include <vulkan/vulkan_core.h>
 
 #ifdef VEGA_PLATFORM_DESKTOP
     #include "GLFW/glfw3.h"
@@ -230,6 +230,7 @@ namespace Vega
             m_QueueCompleteSemaphores.resize(maxFramesInFlight);
             m_InFlightFences.resize(maxFramesInFlight);
 
+            m_StagingBuffers.reserve(maxFramesInFlight);
             for (uint32_t i = 0; i < maxFramesInFlight; ++i)
             {
                 VkSemaphoreCreateInfo semaphoreCreateInfo = {
@@ -248,8 +249,13 @@ namespace Vega
 
                 VK_CHECK(vkCreateFence(logicalDevice, &fenceCreateInfo, m_VkContext.VkAllocator, &m_InFlightFences[i]));
 
-                // ! Important
-                // TODO: create renderbuffers
+                m_StagingBuffers.emplace_back(CreateRef<VulkanRenderBuffer>(RenderBufferProps {
+                    .Name = std::format("{}_staging_buffer_{}", windowTitle, i),
+                    .Type = RenderBufferType::kStaging,
+                    .ElementSize = 1,
+                    .ElementCount = 256 * 1024 * 1024,
+                    .AllocatorType = RenderBufferAllocatorType::kLinear,
+                }));
             }
         }
 
@@ -285,6 +291,12 @@ namespace Vega
     void VulkanRendererBackend::OnWindowDestroy(Ref<Window> _Window)
     {
         VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
+
+        for (Ref<VulkanRenderBuffer> stagingBuffer : m_StagingBuffers)
+        {
+            stagingBuffer->Clear();
+            stagingBuffer->Destroy();
+        }
 
         for (VkSemaphore semaphore : m_ImageAvailableSemaphores)
         {
@@ -402,8 +414,7 @@ namespace Vega
 
         VK_CHECK(vkResetFences(logicalDevice, 1, &m_InFlightFences[m_CurrentFrame]));
 
-        // ! Important
-        // TODO: Reset staging buffer
+        m_StagingBuffers[m_CurrentFrame]->Clear();
 
         return true;
     }
@@ -756,6 +767,11 @@ namespace Vega
         return m_GraphicsCommandBuffer[m_CurrentFrame];
     }
 
+    Ref<VulkanRenderBuffer> VulkanRendererBackend::GetCurrentStagingBuffer() const
+    {
+        return m_StagingBuffers[m_CurrentFrame];
+    }
+
     void VulkanRendererBackend::BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
                                                Ref<FrameBuffer> _FrameBuffer)
     {
@@ -958,7 +974,23 @@ namespace Vega
         return singleUseCommandBuffer;
     }
 
-    void VulkanRendererBackend::DestroySingleUseCommandBuffer(VkCommandBuffer _CommandBuffer) { }
+    void VulkanRendererBackend::DestroyAndEndSingleUseCommandBuffer(VkCommandBuffer _CommandBuffer, VkQueue _Queue,
+                                                                    VkCommandPool _CommandPool)
+    {
+        VK_CHECK(vkEndCommandBuffer(_CommandBuffer));
+
+        VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &_CommandBuffer,
+        };
+
+        VK_CHECK(vkQueueSubmit(_Queue, 1, &submitInfo, VK_NULL_HANDLE));
+
+        VK_CHECK(vkQueueWaitIdle(_Queue));
+
+        vkFreeCommandBuffers(m_VkDeviceWrapper.GetLogicalDevice(), _CommandPool, 1, &_CommandBuffer);
+    }
 
     Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, const TextureProps& _Props)
     {
@@ -981,6 +1013,13 @@ namespace Vega
         Ref<VulkanFrameBuffer> frameBuffer = CreateRef<VulkanFrameBuffer>(_Props);
 
         return frameBuffer;
+    }
+
+    Ref<RenderBuffer> VulkanRendererBackend::CreateRenderBuffer(const RenderBufferProps& _Props)
+    {
+        Ref<VulkanRenderBuffer> renderBuffer = CreateRef<VulkanRenderBuffer>(_Props);
+
+        return renderBuffer;
     }
 
     Ref<VulkanTexture> VulkanRendererBackend::GetCurrentColorTexture() const

@@ -11,8 +11,10 @@ namespace Vega
         GuiLayer(std::string_view name = "GuiLayer") : Layer(name) { }
         virtual ~GuiLayer() = default;
 
-        virtual void BeginGuiFrame() = 0;
+        virtual bool BeginGuiFrame() = 0;
         virtual void EndGuiFrame() = 0;
+
+        virtual void OnExternalViewportsRender() = 0;
 
     protected:
     };
