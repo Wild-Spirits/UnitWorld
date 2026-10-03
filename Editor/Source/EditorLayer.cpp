@@ -278,10 +278,8 @@ namespace Vega
         style.TouchExtraPadding.y = kMainMenuFramePadding;
         bool res = ImGui::BeginMenu(_Title.data());
         style.TouchExtraPadding.y = 0.0f;
-        if (ImGui::IsItemHovered())
-        {
-            Application::Get().SetIsMainMenuAnyItemHovered(true);
-        }
+        // The menu reacts to the mouse in the extra padding too
+        AddTitleBarInteractiveItem({ 0.0f, kMainMenuFramePadding });
 
         return res;
     }
@@ -290,12 +288,22 @@ namespace Vega
     {
         ImGui::SetCursorPosY(_CursorPosY);
         bool res = ImGui::Button(_Title.data(), { _Size.x, _Size.y });
-        if (ImGui::IsItemHovered())
-        {
-            Application::Get().SetIsMainMenuAnyItemHovered(true);
-        }
+        AddTitleBarInteractiveItem();
 
         return res;
+    }
+
+    void EditorLayer::AddTitleBarInteractiveItem(const glm::vec2& _ExtraPadding)
+    {
+        // Window coordinates are relative to the main viewport (with multi-viewports ImGui uses screen ones)
+        ImVec2 viewportPos = ImGui::GetMainViewport()->Pos;
+        ImVec2 itemMin = ImGui::GetItemRectMin();
+        ImVec2 itemMax = ImGui::GetItemRectMax();
+
+        m_TitleBarLayout.InteractiveItems.push_back({
+            .Min = { itemMin.x - viewportPos.x - _ExtraPadding.x, itemMin.y - viewportPos.y - _ExtraPadding.y },
+            .Max = { itemMax.x - viewportPos.x + _ExtraPadding.x, itemMax.y - viewportPos.y + _ExtraPadding.y },
+        });
     }
 
     float EditorLayer::DrawGuiTitlebar()
@@ -310,15 +318,23 @@ namespace Vega
         ImGui::PushStyleColor(ImGuiCol_MenuBarBg, 0xff1b1b1b);
         ImGuiWindowFlags viewportSideBarFlags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
                                                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
-        Application::Get().SetIsMainMenuAnyItemHovered(false);
         float frameHeight = ImGui::GetFrameHeight();
-        Application::Get().SetMainMenuFrameHeight(frameHeight);
+
+        Ref<Window> window = Application::Get().GetWindow();
+        bool isCustomTitleBar = window->IsCustomTitleBar();
+        m_TitleBarLayout = { .Height = frameHeight };
+
         if (ImGui::BeginViewportSideBar(std::format("##Toolbar{}", reinterpret_cast<void*>(viewport)).c_str(), viewport,
                                         ImGuiDir_Up, frameHeight, viewportSideBarFlags))
         {
             if (ImGui::BeginMenuBar())
             {
                 ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, kMainMenuFramePadding);
+                if (isCustomTitleBar && window->IsTitleBarHasNativeButtons())
+                {
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + window->GetTitleBarNativeButtonsWidth());
+                }
+
                 float logoHeight = frameHeight - kMainMenuFramePadding * 0.5f;
                 float logoPosY = (frameHeight - logoHeight) / 2.0f;
                 float cursorPosY = ImGui::GetCursorPosY();
@@ -395,45 +411,11 @@ namespace Vega
 
                 ImGui::PopStyleVar();
 
-                ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, 0.0f);
-                ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
-                float buttonWidth = frameHeight * 1.2f;
-                glm::vec2 buttonSize = { buttonWidth, frameHeight };
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - buttonWidth * 3.0f +
-                                     ImGui::GetStyle().WindowPadding.x);
-
-                Ref<Window> window = Application::Get().GetWindow();
-
-                if (GuiDrawMenuButton(ICON_FA_MINUS, cursorPosY, buttonSize))
+                // Without the custom title bar the system draws the window buttons
+                if (isCustomTitleBar && !window->IsTitleBarHasNativeButtons())
                 {
-                    window->Minimize();
+                    DrawGuiTitlebarWindowButtons(frameHeight, cursorPosY);
                 }
-
-                if (window->IsWindowMaximized())
-                {
-                    if (GuiDrawMenuButton(ICON_FA_WINDOW_RESTORE, cursorPosY, buttonSize))
-                    {
-                        window->Restore();
-                    }
-                }
-                else
-                {
-                    if (GuiDrawMenuButton(ICON_FA_WINDOW_MAXIMIZE, cursorPosY, buttonSize))
-                    {
-                        window->Maximize();
-                    }
-                }
-
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xff4f4eff);
-                if (GuiDrawMenuButton(ICON_FA_XMARK, cursorPosY, buttonSize))
-                {
-                    Application::Get().Close();
-                }
-                ImGui::PopStyleColor();
-
-                ImGui::PopStyleColor();
-
-                ImGui::PopStyleVar();
 
                 ImGui::EndMenuBar();
             }
@@ -443,7 +425,55 @@ namespace Vega
         ImGui::PopStyleColor();
         ImGui::PopStyleVar(3);
 
+        if (isCustomTitleBar)
+        {
+            window->SetTitleBarLayout(std::move(m_TitleBarLayout));
+        }
+
         return frameHeight - frameHeightOld;
+    }
+
+    void EditorLayer::DrawGuiTitlebarWindowButtons(float _FrameHeight, float _CursorPosY)
+    {
+        Ref<Window> window = Application::Get().GetWindow();
+
+        ImGui::PushStyleVarX(ImGuiStyleVar_ItemSpacing, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+        float buttonWidth = _FrameHeight * 1.2f;
+        glm::vec2 buttonSize = { buttonWidth, _FrameHeight };
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - buttonWidth * 3.0f +
+                             ImGui::GetStyle().WindowPadding.x);
+
+        if (GuiDrawMenuButton(ICON_FA_MINUS, _CursorPosY, buttonSize))
+        {
+            window->Minimize();
+        }
+
+        if (window->IsWindowMaximized())
+        {
+            if (GuiDrawMenuButton(ICON_FA_WINDOW_RESTORE, _CursorPosY, buttonSize))
+            {
+                window->Restore();
+            }
+        }
+        else
+        {
+            if (GuiDrawMenuButton(ICON_FA_WINDOW_MAXIMIZE, _CursorPosY, buttonSize))
+            {
+                window->Maximize();
+            }
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xff4f4eff);
+        if (GuiDrawMenuButton(ICON_FA_XMARK, _CursorPosY, buttonSize))
+        {
+            Application::Get().Close();
+        }
+        ImGui::PopStyleColor();
+
+        ImGui::PopStyleColor();
+
+        ImGui::PopStyleVar();
     }
 
 }    // namespace Vega

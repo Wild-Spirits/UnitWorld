@@ -373,12 +373,14 @@ namespace Vega
                 VEGA_CORE_WARN(
                     "TODO: Need to destroy and recreate depth buffer textures array on swapchain images count change");
             }
+            // The swapchain extent comes from the surface and can differ from the size reported by the window
             Ref<Window> window = Application::Get().GetWindow();
+            VkExtent2D swapchainExtent = m_VkSwapchain.GetExtent();
             for (size_t i = 0; i < m_VkSwapchain.GetImagesCount(); ++i)
             {
                 Ref<VulkanTexture> depthBufferTexture = m_DepthBufferTextures[i];
-                depthBufferTexture->Resize(std::format("{}_depth_buffer_{}", window->GetTitle(), i), window->GetWidth(),
-                                           window->GetHeight());
+                depthBufferTexture->Resize(std::format("{}_depth_buffer_{}", window->GetTitle(), i),
+                                           swapchainExtent.width, swapchainExtent.height);
             }
 
             m_IsNeedRecreateSwapchain = false;
@@ -400,11 +402,10 @@ namespace Vega
 
         if (acquireNextImageResult == VK_ERROR_OUT_OF_DATE_KHR)
         {
-            VEGA_CORE_TRACE("Recreateing swapchain");
-            if (!m_VkSwapchain.Recreate(m_VkContext, m_VkDeviceWrapper, m_RendererFlags, m_VkSurface))
-            {
-                VEGA_CORE_ASSERT(false, "Failed to recreate swapchain!");
-            }
+            // Full recreation on the next frame: recreating only the swapchain here leaves depth buffers and command
+            // buffers of the old size
+            VEGA_CORE_TRACE("Swapchain is out of date on acquire, recreating");
+            m_IsNeedRecreateSwapchain = true;
             return false;
         }
         else if (acquireNextImageResult != VK_SUCCESS && acquireNextImageResult != VK_SUBOPTIMAL_KHR)
@@ -496,14 +497,9 @@ namespace Vega
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
-            if (!m_VkSwapchain.Recreate(m_VkContext, m_VkDeviceWrapper, m_RendererFlags, m_VkSurface))
-            {
-                VEGA_CORE_WARN("Failed to recreate swapchain after presentation");
-            }
-            else
-            {
-                VEGA_CORE_TRACE("Swapchain recreated because swapchain returned out of date or suboptimal.");
-            }
+            // Full recreation on the next frame, see FramePrepareWindowSurface
+            VEGA_CORE_TRACE("Swapchain is out of date or suboptimal on present, recreating");
+            m_IsNeedRecreateSwapchain = true;
         }
         else if (result != VK_SUCCESS)
         {

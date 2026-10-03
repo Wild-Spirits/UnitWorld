@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Platform/Desktop/Core/GLFWTitleBar.hpp"
 #include "Platform/Platform.hpp"
 
 #include "Vega/Core/Window.hpp"
@@ -17,9 +18,7 @@ namespace Vega
             WindowData(const WindowProps& _Props) : WindowProps(_Props) { }
             Ref<EventManager> EventManager;
             float MonitorScale = 1.0f;
-#if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
-            void* OriginalProc = nullptr;
-#endif
+            GLFWTitleBar* TitleBar = nullptr;
         };
 
     public:
@@ -38,6 +37,15 @@ namespace Vega
         virtual void Minimize() override;
         virtual void Restore() override;
 
+        virtual bool IsCustomTitleBar() const override { return m_TitleBar != nullptr; }
+        virtual bool IsTitleBarHasNativeButtons() const override
+        {
+            return m_TitleBar && m_TitleBar->IsHasNativeButtons();
+        }
+        virtual float GetTitleBarNativeButtonsWidth() const override;
+        virtual void SetTitleBarLayout(WindowTitleBarLayout&& _Layout) override;
+        virtual bool IsCursorOnResizeBorder() const override;
+
         virtual void OnUpdate() override;
 
         void SetEventManager(Ref<EventManager> _EventManager) override { m_Data.EventManager = _EventManager; }
@@ -47,11 +55,24 @@ namespace Vega
     protected:
         bool Init();
         void SetCallbacks();
+        void ApplyPendingShowCommand();
+
+    protected:
+        enum class ShowCommand
+        {
+            kNone,
+            kMaximize,
+            kMinimize,
+            kRestore,
+        };
 
     protected:
         GLFWwindow* m_Window;
 
         WindowData m_Data;
+
+        Scope<GLFWTitleBar> m_TitleBar;
+        ShowCommand m_PendingShowCommand = ShowCommand::kNone;
     };
 
 }    // namespace Vega

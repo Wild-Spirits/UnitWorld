@@ -9,208 +9,21 @@
 
 #include <GLFW/glfw3.h>
 
-#if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
-    #define GLFW_EXPOSE_NATIVE_WIN32
-    #include "GLFW/glfw3native.h"
-
-    #define UNICODE
-    #define _UNICODE
-    #include <Windows.h>
-    #include <Windowsx.h>
-
-#endif
-
 namespace Vega
 {
-
-#if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
-
-    bool IsWindowMaximizedAlt(HWND hWnd)
-    {
-        WINDOWPLACEMENT wp;
-        wp.length = sizeof(WINDOWPLACEMENT);
-        if (GetWindowPlacement(hWnd, &wp))
-        {
-            return wp.showCmd == SW_MAXIMIZE;
-        }
-        return false;
-    }
-
-    glm::ivec4 calcOffset(GLFWWindow::WindowData& _WindowData, HWND hWnd)
-    {
-
-        if (IsZoomed(hWnd) != 0)
-        {
-            LONG offset = std::lround(8.0f * _WindowData.MonitorScale);
-            return { offset, offset, offset, offset };
-        }
-        else
-        {
-            LONG offset = std::lround(1.0f * _WindowData.MonitorScale);
-            return { 1, offset, offset, offset };
-        }
-    }
-
-    void DrawBorder(GLFWWindow::WindowData& _WindowData, HWND hWnd)
-    {
-        HDC hdc = GetWindowDC(hWnd);
-        RECT rect;
-        GetWindowRect(hWnd, &rect);
-        OffsetRect(&rect, -rect.left, -rect.top);
-
-        HPEN hPen = CreatePen(PS_SOLID, std::lround(2.0f * _WindowData.MonitorScale), RGB(64, 64, 64));
-        HPEN oldPen = (HPEN)SelectObject(hdc, hPen);
-        HBRUSH hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
-        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-
-        Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
-
-        SelectObject(hdc, oldPen);
-        SelectObject(hdc, oldBrush);
-        DeleteObject(hPen);
-
-        ReleaseDC(hWnd, hdc);
-    }
-
-    LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-    {
-        // if (uMsg != 124 && uMsg != 125)
-        // {
-        //     LOG_CORE_WARN("WindowProc {}", uMsg);
-        // }
-
-        GLFWWindow::WindowData& data =
-            *reinterpret_cast<GLFWWindow::WindowData*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-
-        switch (uMsg)
-        {
-            case WM_NCCALCSIZE: {
-                if (wParam == TRUE && lParam != NULL)
-                {
-                    NCCALCSIZE_PARAMS* pParams = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
-                    glm::ivec4 offset = calcOffset(data, hWnd);
-                    pParams->rgrc[0].top += offset[0];
-                    pParams->rgrc[0].right -= offset[1];
-                    pParams->rgrc[0].bottom -= offset[2];
-                    pParams->rgrc[0].left += offset[3];
-                }
-                return 0;
-            }
-            case WM_NCACTIVATE: return 1;
-            // case WM_ACTIVATE: {
-            //     LRESULT res = DefWindowProc(hWnd, uMsg, wParam, lParam);
-            //     // LONG res = CallWindowProc(original_proc, hWnd, uMsg, wParam, lParam);
-            //     DrawBorder(hWnd);
-            //     return res;
-            // }
-            case WM_NCPAINT: {
-                DrawBorder(data, hWnd);
-                return 0;
-            }
-            case WM_PAINT: {
-
-                PAINTSTRUCT ps;
-                BeginPaint(hWnd, &ps);
-                EndPaint(hWnd, nullptr);
-
-                DrawBorder(data, hWnd);
-                return 0;
-            }
-            case WM_NCHITTEST: {
-                const int borderWidth = 8;
-
-                POINT mousePos = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-
-                RECT windowRect;
-                GetWindowRect(hWnd, &windowRect);
-
-                if (mousePos.y >= windowRect.bottom - borderWidth)
-                {
-                    if (mousePos.x <= windowRect.left + borderWidth)
-                    {
-                        return HTBOTTOMLEFT;
-                    }
-                    else if (mousePos.x >= windowRect.right - borderWidth)
-                    {
-                        return HTBOTTOMRIGHT;
-                    }
-                    else
-                    {
-                        return HTBOTTOM;
-                    }
-                }
-                else if (mousePos.y <= windowRect.top + borderWidth)
-                {
-                    if (mousePos.x <= windowRect.left + borderWidth)
-                    {
-                        return HTTOPLEFT;
-                    }
-                    else if (mousePos.x >= windowRect.right - borderWidth)
-                    {
-                        return HTTOPRIGHT;
-                    }
-                    else
-                    {
-                        return HTTOP;
-                    }
-                }
-                else if (mousePos.x <= windowRect.left + borderWidth)
-                {
-                    return HTLEFT;
-                }
-                else if (mousePos.x >= windowRect.right - borderWidth)
-                {
-                    return HTRIGHT;
-                }
-
-                ScreenToClient(hWnd, &mousePos);
-                if (mousePos.y < Application::Get().GetMainMenuFrameHeight() &&
-                    !Application::Get().GetIsMainMenuAnyItemHovered())
-                {
-                    return HTCAPTION;
-                }
-
-                return HTCLIENT;
-            }
-        }
-
-        // return DefWindowProc(hWnd, uMsg, wParam, lParam);
-        return CallWindowProc(reinterpret_cast<WNDPROC>(data.OriginalProc), hWnd, uMsg, wParam, lParam);
-    }
-
-    void disableTitlebar(GLFWwindow* _Window)
-    {
-        HWND hWnd = glfwGetWin32Window(_Window);
-        GLFWWindow::WindowData& data = *reinterpret_cast<GLFWWindow::WindowData*>(glfwGetWindowUserPointer(_Window));
-        SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&data));
-
-        LONG_PTR lStyle = GetWindowLongPtr(hWnd, GWL_STYLE);
-        lStyle |= WS_THICKFRAME;
-        // lStyle &= ~WS_CAPTION;
-        // lStyle &= ~WS_BORDER;
-        // lStyle &= ~WS_DLGFRAME;
-        SetWindowLongPtr(hWnd, GWL_STYLE, lStyle);
-        // MARGINS margins = {0, 0, 0, 0};
-        // DwmExtendFrameIntoClientArea(hWnd, &margins);
-
-        RECT windowRect;
-        GetWindowRect(hWnd, &windowRect);
-        int width = windowRect.right - windowRect.left;
-        int height = windowRect.bottom - windowRect.top;
-
-        data.OriginalProc = reinterpret_cast<void*>(GetWindowLongPtr(hWnd, GWLP_WNDPROC));
-        data.OriginalProc =
-            reinterpret_cast<void*>(SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WindowProc)));
-        SetWindowPos(hWnd, NULL, 0, 0, width, height, SWP_FRAMECHANGED | SWP_NOMOVE);
-    }
-
-#endif
 
     bool GlfwGetWindowMonitor(GLFWmonitor** _Monitor, GLFWwindow* _Window);
 
     GLFWWindow::GLFWWindow(const WindowProps& _Props) : m_Data(_Props) { Init(); }
 
-    GLFWWindow::~GLFWWindow() { glfwDestroyWindow(m_Window); }
+    GLFWWindow::~GLFWWindow()
+    {
+        // Restores the window state (e.g. the window procedure on Windows) while the window is still alive
+        m_TitleBar.reset();
+        m_Data.TitleBar = nullptr;
+
+        glfwDestroyWindow(m_Window);
+    }
 
     glm::dvec2 GLFWWindow::GetCursorInWindowPosition() const
     {
@@ -226,17 +39,54 @@ namespace Vega
         return maximized == GLFW_TRUE;
     }
 
-    void GLFWWindow::Maximize() { glfwMaximizeWindow(m_Window); }
+    // Usually called from the GUI while the frame is being recorded: the state change synchronously sends resize
+    // and other events, so it's postponed until OnUpdate
+    void GLFWWindow::Maximize() { m_PendingShowCommand = ShowCommand::kMaximize; }
 
-    void GLFWWindow::Minimize() { glfwIconifyWindow(m_Window); }
+    void GLFWWindow::Minimize() { m_PendingShowCommand = ShowCommand::kMinimize; }
 
-    void GLFWWindow::Restore() { glfwRestoreWindow(m_Window); }
+    void GLFWWindow::Restore() { m_PendingShowCommand = ShowCommand::kRestore; }
+
+    float GLFWWindow::GetTitleBarNativeButtonsWidth() const
+    {
+        return m_TitleBar ? m_TitleBar->GetNativeButtonsWidth() : 0.0f;
+    }
+
+    void GLFWWindow::SetTitleBarLayout(WindowTitleBarLayout&& _Layout)
+    {
+        if (m_TitleBar)
+        {
+            m_TitleBar->SetLayout(std::move(_Layout));
+        }
+    }
+
+    bool GLFWWindow::IsCursorOnResizeBorder() const { return m_TitleBar && m_TitleBar->IsCursorOnResizeBorder(); }
 
     void GLFWWindow::OnUpdate()
     {
+        ApplyPendingShowCommand();
+
+        if (m_TitleBar)
+        {
+            m_TitleBar->OnUpdate();
+        }
+
         glfwMakeContextCurrent(m_Window);
         glfwPollEvents();
         glfwSwapBuffers(m_Window);
+    }
+
+    void GLFWWindow::ApplyPendingShowCommand()
+    {
+        switch (m_PendingShowCommand)
+        {
+            case ShowCommand::kNone: break;
+            case ShowCommand::kMaximize: glfwMaximizeWindow(m_Window); break;
+            case ShowCommand::kMinimize: glfwIconifyWindow(m_Window); break;
+            case ShowCommand::kRestore: glfwRestoreWindow(m_Window); break;
+        }
+
+        m_PendingShowCommand = ShowCommand::kNone;
     }
 
     bool GLFWWindow::Init()
@@ -255,7 +105,10 @@ namespace Vega
 #endif
         }
 
+        // Hidden until the title bar is set up, otherwise the system one flashes on start
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         m_Window = glfwCreateWindow(m_Data.Width, m_Data.Height, m_Data.Title.c_str(), NULL, NULL);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
         if (!m_Window)
         {
@@ -270,7 +123,15 @@ namespace Vega
         }
         glfwGetMonitorContentScale(nowMonitor, NULL, &m_Data.MonitorScale);
         glfwSetWindowUserPointer(m_Window, &m_Data);
-        disableTitlebar(m_Window);
+
+        if (m_Data.IsUseCustomTitlebar)
+        {
+            m_TitleBar = GLFWTitleBar::Create(m_Window);
+            m_Data.TitleBar = m_TitleBar.get();
+        }
+        VEGA_CORE_TRACE("Custom title bar: {}", m_TitleBar != nullptr);
+
+        glfwShowWindow(m_Window);
         VEGA_CORE_TRACE("Current monitor: {}", static_cast<void*>(nowMonitor));
         VEGA_CORE_TRACE("Current monitor scale: {}", m_Data.MonitorScale);
 
@@ -395,6 +256,11 @@ namespace Vega
 
         glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* _Window, int _Button, int _Action, int _Mods) {
             WindowData& data = *reinterpret_cast<WindowData*>(glfwGetWindowUserPointer(_Window));
+
+            if (data.TitleBar)
+            {
+                data.TitleBar->OnMouseButton(_Button, _Action);
+            }
 
             switch (_Action)
             {

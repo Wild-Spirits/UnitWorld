@@ -25,6 +25,8 @@ namespace Vega
 
         inline size_t GetImagesCount() const { return m_SwapchainImages.size(); }
 
+        inline VkExtent2D GetExtent() const { return m_Extent; }
+
         inline const std::vector<Ref<VulkanTexture>>& GetVulkanColorTextures() const
         {
             return m_VulkanColorBufferTextures;
@@ -45,6 +47,8 @@ namespace Vega
         RendererBackendConfig::Flags m_RendererFlags;
 
         uint32_t m_MaxFramesInFlight;
+
+        VkExtent2D m_Extent = { 0, 0 };
 
         VkSwapchainKHR m_VkSwapchain;
 

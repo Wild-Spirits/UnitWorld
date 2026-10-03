@@ -89,6 +89,7 @@ namespace Vega
             VEGA_CORE_INFO("Swapchain extent is zero");
             return false;
         }
+        m_Extent = swapchainExtent;
 
         uint32_t imageCount = m_SwapchainSupportInfo.Capabilities.minImageCount + 1;
         if (m_SwapchainSupportInfo.Capabilities.maxImageCount > 0 &&

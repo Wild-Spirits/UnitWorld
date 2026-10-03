@@ -101,19 +101,8 @@ namespace Vega
         Application& app = Application::Get();
         if (app.GetIsHasCutsomTitleBar())
         {
-            Ref<Window> window = app.GetWindow();
-
-            glm::dvec2 windowSize = { static_cast<double>(window->GetWidth()),
-                                      static_cast<double>(window->GetHeight()) };
-            glm::dvec2 mousePos = window->GetCursorInWindowPosition();
-
-            // TODO: use this only if
-            bool on_edge =
-                (mousePos.x >= 0 && mousePos.x <= windowSize.x && mousePos.y >= 0 && mousePos.y <= windowSize.y) &&
-                (mousePos.x <= 8 || mousePos.x >= windowSize.x - 8 || mousePos.y <= 8 ||
-                 mousePos.y >= windowSize.y - 8);
-
-            if (on_edge)
+            // The platform shows the resize cursor there
+            if (app.GetWindow()->IsCursorOnResizeBorder())
             {
                 io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
             }

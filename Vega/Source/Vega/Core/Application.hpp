@@ -65,13 +65,8 @@ namespace Vega
 
         const Ref<RendererBackend> GetRendererBackend() const { return m_RendererBackend; }
 
+        // The window has no system caption, the client must draw its own title bar (see Window::SetTitleBarLayout)
         bool GetIsHasCutsomTitleBar() const;
-
-        inline void SetIsMainMenuAnyItemHovered(bool _IsHovered) { m_IsMainMenuAnyItemHovered = _IsHovered; }
-        inline bool GetIsMainMenuAnyItemHovered() const { return m_IsMainMenuAnyItemHovered; }
-
-        inline void SetMainMenuFrameHeight(float _Height) { m_MainMenuFrameHeight = _Height; }
-        inline float GetMainMenuFrameHeight() const { return m_MainMenuFrameHeight; }
 
         // template <typename T>
         // const Ref<T> GetCastedRendererBackend() const
@@ -102,9 +97,6 @@ namespace Vega
         bool m_Resizing = false;
         LayerStack m_LayerStack;
         float m_LastFrameTime = 0.0f;
-
-        bool m_IsMainMenuAnyItemHovered = false;
-        float m_MainMenuFrameHeight = 48.0f;
 
     protected:
         static Application* s_Instance;

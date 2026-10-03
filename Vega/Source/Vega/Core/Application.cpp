@@ -32,7 +32,7 @@ namespace Vega
             .Width = 1280u,
             .Height = 720u,
             .RendererAPI = _Props.RendererAPI,
-            .IsUseCustomTitlebar = GetIsHasCutsomTitleBar(),
+            .IsUseCustomTitlebar = _Props.IsUseCustomTitlebar,
         };
         m_Window = Window::Create(windowProps);
         m_Window->SetEventManager(m_EventManager);
@@ -96,16 +96,7 @@ namespace Vega
 
     void Application::Close() { m_Running = false; }
 
-    bool Application::GetIsHasCutsomTitleBar() const
-    {
-        bool result = m_Props.IsUseCustomTitlebar;
-#if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
-        result = result && true;
-#else
-        result = false;
-#endif
-        return result;
-    }
+    bool Application::GetIsHasCutsomTitleBar() const { return m_Window && m_Window->IsCustomTitleBar(); }
 
     void Application::Run()
     {

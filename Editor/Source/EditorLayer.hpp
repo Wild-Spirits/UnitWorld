@@ -2,6 +2,7 @@
 
 #include "Panels/EntityPropsPanel.hpp"
 #include "Panels/SceneHierarchyPanel.hpp"
+#include "Vega/Core/Window.hpp"
 #include "Vega/ImGui/ImGuiFrameBufferWrapper.hpp"
 #include "Vega/ImGui/ImGuiTextureWrapper.hpp"
 #include "Vega/Layers/Layer.hpp"
@@ -30,7 +31,11 @@ namespace Vega
 
         bool GuiDrawMenuButton(std::string_view _Title, float _CursorPosY, const glm::vec2& _Size);
 
+        // Adds the last ImGui item to the title bar items that don't drag the window
+        void AddTitleBarInteractiveItem(const glm::vec2& _ExtraPadding = { 0.0f, 0.0f });
+
         float DrawGuiTitlebar();
+        void DrawGuiTitlebarWindowButtons(float _FrameHeight, float _CursorPosY);
 
     protected:
         // std::vector<Ref<Texture>> m_ColorBuffers;
@@ -44,6 +49,7 @@ namespace Vega
         Ref<Sampler> m_AppLogoSampler;
         Ref<ImGuiTextureWrapper> m_AppLogoImGuiTexture;
         bool m_IsDrawImGuiDemoWindow = false;
+        WindowTitleBarLayout m_TitleBarLayout;
 
         Ref<Scene> m_ActiveScene;
         SceneHierarchyPanel m_SceneHierarchyPanel;

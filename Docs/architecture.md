@@ -13,7 +13,7 @@
 | `Vega/Source/Vega/Plugins` | `PluginLibrary` — загрузка DLL и поиск экспортированных функций |
 | `Vega/Source/Vega/ImGui` | Интерфейсы `ImGuiImpl`, обёртки текстур/фреймбуферов для ImGui, иконочные шрифты Font Awesome |
 | `Vega/Source/Vega/Utils` | Собственный `Logger`/`Log`, `PluginData`, `magic_enum.hpp`, `utf8.hpp` |
-| `Vega/Source/Platform` | Платформенный код: `Platform.hpp` (макросы `VEGA_PLATFORM_*`), GLFW-окно/ввод, OpenGL-бэкенд (заглушка), WinAPI-загрузчик плагинов |
+| `Vega/Source/Platform` | Платформенный код: `Platform.hpp` (макросы `VEGA_PLATFORM_*`), GLFW-окно/ввод, кастомный заголовок окна (`Desktop`/`Windows`/`Linux`/`MacOS`), OpenGL-бэкенд (заглушка), WinAPI-загрузчик плагинов |
 | `VegaPlugins/VegaVulkanRenderer` | Реализация `RendererBackend` на Vulkan, собирается в DLL — см. [renderer.md](renderer.md) |
 | `Editor/Source` | Приложение-редактор: `main.cpp`, `EditorLayer`, панели `SceneHierarchyPanel`, `EntityPropsPanel` |
 | `Assets` | Шрифты, текстуры, GLSL-шейдеры (`Shaders/Source/*.vert|frag` + сгенерированные `*.spv`), `AppConfig.json` |
@@ -52,15 +52,39 @@ if not minimized:
         backend.TmpRendergraphExecute()             # временно, до появления RenderGraph
         backend.FrameCommandListEnd(); FrameSubmit(); FramePresent()
     GuiLayer.OnExternalViewportsRender()            # окна ImGui multi-viewport
-window.OnUpdate()                                   # опрос GLFW
+window.OnUpdate()                                   # отложенные Maximize/Minimize/Restore, тайтлбар, опрос GLFW
 eventManager.DispatchEvents()
 ```
+
+`Window::Maximize/Minimize/Restore` не меняют состояние сразу, а применяются в `Window::OnUpdate`: смена состояния
+синхронно рассылает события ресайза, а вызывается обычно из GUI посреди записи кадра.
+
+Vulkan-бэкенд пересоздаёт swapchain вместе с depth-буферами и command buffer-ами только в начале кадра
+(`FramePrepareWindowSurface` при `m_IsNeedRecreateSwapchain`); `VK_ERROR_OUT_OF_DATE_KHR`/`VK_SUBOPTIMAL_KHR` лишь
+выставляют этот флаг. Размер depth-буферов берётся из extent swapchain, а не из размера окна.
 
 Таймстеп пока не считается (`time = 0.0f`), `Layer::OnUpdate()` вызывается без аргументов.
 
 В Editor сцена рисуется в собственный `FrameBuffer` (`EditorLayer::OnRender`: `BindAndClearColorDepthStencil` →
 `BeginRendering` → `Scene::OnRender` → `EndRendering`), а затем выводится в окно-вьюпорт ImGui через
 `ImGuiFrameBufferWrapper`.
+
+## Окно и кастомный заголовок
+
+`Window` (реализация `GLFWWindow`) при `WindowProps::IsUseCustomTitlebar` создаёт платформенный `GLFWTitleBar`
+(`Platform/Desktop/Core/GLFWTitleBar.*`). Окно создаётся скрытым и показывается после настройки заголовка.
+Сам заголовок рисует клиент (`EditorLayer::DrawGuiTitlebar`); платформа отвечает за перетаскивание, ресайз и
+двойной клик. Каждый кадр клиент передаёт `Window::SetTitleBarLayout`: высоту заголовка и прямоугольники
+интерактивных элементов (меню, кнопки) в координатах окна — всё остальное в пределах высоты перетаскивает окно.
+
+| Платформа | Класс | Как устроено |
+| --- | --- | --- |
+| Windows | `Platform/Windows/Core/WinTitleBar` | Сабкласс оконной процедуры (wide-char API). `WM_NCCALCSIZE` убирает только заголовок и верхнюю рамку: левая, правая и нижняя остаются системными (невидимые рамки ресайза, тень, Snap). Верхний ресайз и caption эмулируются в `WM_NCHITTEST`; у развёрнутого окна отступ по толщине рамки для DPI окна и зазор для автоскрываемой панели задач. |
+| Linux (X11) | `Platform/Linux/Core/LinuxTitleBar` | Окно без декораций; перемещение и ресайз отдаются оконному менеджеру через `_NET_WM_MOVERESIZE`, после чего GLFW досылается синтетический `ButtonRelease`. На Wayland не поддерживается — используются системные декорации (`IsCustomTitleBar() == false`). |
+| macOS | `Platform/MacOS/Core/MacOSTitleBar.mm` | `NSWindowStyleMaskFullSizeContentView` + прозрачный системный заголовок; «светофоры» остаются родными (`IsTitleBarHasNativeButtons`, клиент оставляет под них `GetTitleBarNativeButtonsWidth`). Перетаскивание — `performWindowDragWithEvent`, ресайз системный. |
+
+`Application::GetIsHasCutsomTitleBar()` возвращает фактическое состояние окна. Если кастомного заголовка нет,
+Editor рисует меню без собственных кнопок окна.
 
 ## Слои
 
@@ -126,7 +150,7 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
 
 ## Редактор
 
-- `EditorLayer` — кастомный заголовок окна (`DrawGuiTitlebar`, только Windows), главное меню, вьюпорт игры,
+- `EditorLayer` — кастомный заголовок окна (`DrawGuiTitlebar`, см. «Окно и кастомный заголовок»), главное меню, вьюпорт игры,
   тестовая сцена с иерархией и одним мешем.
 - `SceneHierarchyPanel` — дерево сущностей.
 - `EntityPropsPanel` — свойства выбранной сущности; отрисовщики компонентов регистрируются через

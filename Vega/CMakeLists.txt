@@ -107,6 +107,11 @@ set(SOURCES
 
     Source/Platform/Desktop/Core/GLFWInputs.cpp
     Source/Platform/Desktop/Core/GLFWWindow.hpp                             Source/Platform/Desktop/Core/GLFWWindow.cpp
+    Source/Platform/Desktop/Core/GLFWTitleBar.hpp                           Source/Platform/Desktop/Core/GLFWTitleBar.cpp
+
+    Source/Platform/Windows/Core/WinTitleBar.hpp                            Source/Platform/Windows/Core/WinTitleBar.cpp
+    Source/Platform/Linux/Core/LinuxTitleBar.hpp                            Source/Platform/Linux/Core/LinuxTitleBar.cpp
+    Source/Platform/MacOS/Core/MacOSTitleBar.hpp
 
     Source/Platform/Windows/Plugins/WinPluginLibrary.cpp                     
 
@@ -127,6 +132,14 @@ set(SOURCES
     # Source/Platform/Windows/Utils/WindowsFileDiologs.cpp
 )
 
+# Objective-C++ sources are compiled only on Apple
+if(APPLE)
+    enable_language(OBJCXX)
+    list(APPEND SOURCES
+        Source/Platform/MacOS/Core/MacOSTitleBar.mm
+    )
+endif()
+
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 
 add_compile_definitions(GLEW_STATIC _LIB IMGUI_DEFINE_MATH_OPERATORS)
@@ -137,6 +150,16 @@ add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
 target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} glm args glfw glew stb EnTT::EnTT imgui nfd)
+
+# System libraries for the custom title bar
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} dwmapi)
+elseif(APPLE)
+    target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
+elseif(UNIX)
+    find_package(X11 REQUIRED)
+    target_link_libraries(${PROJECT_NAME} X11::X11)
+endif()
 
 # if(MSVC)
 #     target_link_libraries(${PROJECT_NAME} opengl32)

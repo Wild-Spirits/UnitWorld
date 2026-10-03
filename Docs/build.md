@@ -58,6 +58,9 @@ UnitWorld (корневой CMakeLists.txt)
 
 Vulkan-бэкенд ImGui подключается в самом плагине (`ImGui/VulkanImGuiBackend.cpp`).
 
+Системные библиотеки для кастомного заголовка окна: `dwmapi` (Windows), `X11::X11` через `find_package(X11)`
+(Linux), `-framework Cocoa` (macOS). На macOS включается язык `OBJCXX` для `MacOSTitleBar.mm` (CMake ≥ 3.16).
+
 ## Глобальные определения
 
 Корневой `CMakeLists.txt` задаёт для всех целей:
