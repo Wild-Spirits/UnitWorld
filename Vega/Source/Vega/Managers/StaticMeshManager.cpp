@@ -53,7 +53,7 @@ namespace Vega
         return meshInfo;
     }
 
-    void StaticMeshManager::BindMesh(std::string_view _MeshName)
+    StaticMeshManagerMeshInfo StaticMeshManager::BindMesh(std::string_view _MeshName)
     {
         VEGA_CORE_ASSERT(!_MeshName.empty(), "StaticMeshManager::BindMesh: Mesh name is empty!");
         auto meshInfoIt = m_MeshesInfo.find(_MeshName.data());
@@ -61,6 +61,8 @@ namespace Vega
 
         m_VertexBuffer->Bind(meshInfoIt->second.VertexOffset);
         m_IndexBuffer->Bind(meshInfoIt->second.IndexOffset);
+
+        return meshInfoIt->second;
     }
 
 }    // namespace Vega

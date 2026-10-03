@@ -75,6 +75,7 @@ namespace Vega
 
         if (m_MaxDescriptorSetCount > 0)
         {
+            // TODO: Should create pool of pools and handle overflow of pool with descriptors to create new
             VkDescriptorPoolCreateInfo poolInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .pNext = nullptr,

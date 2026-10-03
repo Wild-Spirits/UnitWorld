@@ -44,7 +44,7 @@ namespace Vega
                                           size_t _VertexCount, const StaticMeshIndex* _Indices, size_t _IndexCount,
                                           bool _IncludeInFrameWorkload);
 
-        void BindMesh(std::string_view _MeshName);
+        StaticMeshManagerMeshInfo BindMesh(std::string_view _MeshName);
 
     protected:
         // TODO: friend class AssetManager;

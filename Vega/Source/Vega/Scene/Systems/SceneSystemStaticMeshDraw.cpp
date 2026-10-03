@@ -32,6 +32,8 @@ namespace Vega::SceneSystems
                 .Name = "SceneSystemStaticMeshDraw",
                 .Attributes = { ShaderAttributeType::kFloat3, ShaderAttributeType::kFloat2 },
                 .UniformsPerGroup = perGroupUniforms,
+                // Culling disabled: flipped viewport inverts winding, so the NDC-space quad would be culled as back-face
+                .CullMode = FaceCullMode::kNone,
         },
             { ShaderStageConfig {
                   .Type = ShaderStageConfig::ShaderStageType::kVertex,
@@ -65,7 +67,8 @@ namespace Vega::SceneSystems
                 m_Shader->ApplyFrequency(ShaderUpdateFrequency::kPerGroup);
                 m_Shader->SetUniformBufferData("perDrawUbo.model", transformComp.GetTransformMatrix(),
                                                ShaderUpdateFrequency::kPerDraw);
-                staticMeshManager->BindMesh(meshComp.MeshName);
+                StaticMeshManagerMeshInfo meshInfo = staticMeshManager->BindMesh(meshComp.MeshName);
+                rendererBackend->DrawIndexed(static_cast<uint32_t>(meshInfo.IndexCount));
                 // rendererBackend->TestFoo();
 
                 // TODO: Actually we need to add objects to some render graph nodes
