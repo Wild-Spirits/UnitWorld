@@ -4,8 +4,11 @@
 #include "Vega/Core/Base.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
+#include "Vega/Managers/MaterialManager.hpp"
 #include "Vega/Managers/StaticMeshManager.hpp"
+#include "Vega/Managers/TextureManager.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
+#include "Vega/Renderer/Texture.hpp"
 #include "Vega/Scene/Components/StaticMeshComponent.hpp"
 #include "Vega/Scene/Components/TransformComponent.hpp"
 #include "Vega/Scene/Scene.hpp"
@@ -57,29 +60,38 @@ namespace Vega
 
         m_ViewportDimensions = { window->GetWidth(), window->GetHeight() };
 
-        m_FrameBuffer = rendererBackend->CreateFrameBuffer({
-            .Name = "TestFB",
+        m_FrameBuffer = rendererBackend->CreateFrameBuffer(FrameBufferProps {
+            .Name = "GameFrameBuffer",
             .Width = m_ViewportDimensions.x,
             .Height = m_ViewportDimensions.y,
             .IsUsedInFlight = true,
-            .IsUsedForGui = true,
         });
+        m_FrameBufferSampler = rendererBackend->CreateSampler("GameFrameBufferSampler", SamplerProps {});
+        m_FrameBufferImGuiTexture = rendererBackend->CreateImGuiFrameBufferWrapper(m_FrameBuffer, m_FrameBufferSampler);
 
-        m_AppLogo = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo_ws.png",
-                                                   TextureProps { .IsUsedForGui = true });
+        m_AppLogo = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo_ws.png", TextureProps {});
+        m_AppLogoSampler = rendererBackend->CreateSampler("AppLogoSampler", SamplerProps {});
+        m_AppLogoImGuiTexture = rendererBackend->CreateImGuiTextureWrapper(m_AppLogo, m_AppLogoSampler);
 
         // m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
 
         Ref<StaticMeshManager> staticMeshManager = CreateRef<StaticMeshManager>();
         Application::Get().AddManager("StaticMeshManager", staticMeshManager);
 
+        Ref<TextureManager> textureManager = CreateRef<TextureManager>();
+        Application::Get().AddManager("TextureManager", textureManager);
+
+        Ref<MaterialManager> materialManager = CreateRef<MaterialManager>();
+        Application::Get().AddManager("MaterialManager", materialManager);
+
         std::vector<StaticMeshVertex> vertices {
-            { .Position = { -0.5f, -0.5f, 1.0f } },
-            { .Position = { 0.5f, 0.5f, 1.0f } },
-            { .Position = { -0.5f, 0.5f, 1.0f } },
+            { .Position = { -0.5f, -0.5f, 1.0f }, .TexCoord = { 0.0f, 0.0f } },
+            {  .Position = { 0.5f, -0.5f, 1.0f }, .TexCoord = { 1.0f, 0.0f } },
+            {   .Position = { 0.5f, 0.5f, 1.0f }, .TexCoord = { 1.0f, 1.0f } },
+            {  .Position = { -0.5f, 0.5f, 1.0f }, .TexCoord = { 0.0f, 1.0f } },
         };
 
-        std::vector<uint32_t> indices { 0, 1, 2 };
+        std::vector<uint32_t> indices { 0, 1, 2, 2, 3, 0 };
 
         staticMeshManager->AddMesh("TestMesh", vertices.data(), vertices.size(), indices.data(), indices.size(), false);
 
@@ -96,9 +108,9 @@ namespace Vega
         Entity Entity313 = m_ActiveScene->CreateActor("Test313", Entity31);
         Entity Entity314 = m_ActiveScene->CreateActor("Test314", Entity31);
         Entity311.AddComponent<Components::StaticMeshComponent>("TestMesh");
-        Entity312.AddComponent<Components::StaticMeshComponent>("TestMesh");
-        Entity313.AddComponent<Components::StaticMeshComponent>("TestMesh");
-        Entity314.AddComponent<Components::StaticMeshComponent>("TestMesh");
+        // Entity312.AddComponent<Components::StaticMeshComponent>("TestMesh");
+        // Entity313.AddComponent<Components::StaticMeshComponent>("TestMesh");
+        // Entity314.AddComponent<Components::StaticMeshComponent>("TestMesh");
 
         EntityPropsPanel::RegisterComponentDescription<Components::TransformComponent>(
             EntityPropsPanelComponentDescription {
@@ -110,7 +122,11 @@ namespace Vega
     void EditorLayer::OnDetach()
     {
         m_ActiveScene.reset();
-        m_AppLogo->Destroy();
+
+        m_AppLogoImGuiTexture->OnDetach();
+        m_AppLogoSampler->OnDetach();
+        m_AppLogo->OnDetach();
+
         m_FrameBuffer->Destroy();
     }
 
@@ -145,7 +161,7 @@ namespace Vega
 
         rendererBackend->EndRendering();
 
-        m_FrameBuffer->TransitToGui();
+        m_FrameBuffer->TransitColorAttachmentToGui();
     }
 
     void EditorLayer::OnGuiRender()
@@ -220,7 +236,7 @@ namespace Vega
         {
             ImVec2 viewportDimensions = ImGui::GetContentRegionAvail();
 
-            ImGui::Image((ImTextureID)m_FrameBuffer->GetInGuiRenderId(), viewportDimensions);
+            ImGui::Image((ImTextureID)m_FrameBufferImGuiTexture->GetImGuiColorAttachmentId(), viewportDimensions);
 
             m_ViewportDimensions = {
                 static_cast<uint32_t>(viewportDimensions.x),
@@ -307,7 +323,7 @@ namespace Vega
                 float logoPosY = (frameHeight - logoHeight) / 2.0f;
                 float cursorPosY = ImGui::GetCursorPosY();
                 ImGui::SetCursorPosY(cursorPosY + logoPosY);
-                ImGui::Image(reinterpret_cast<ImTextureID>(m_AppLogo->GetTextureGuiId()),
+                ImGui::Image(reinterpret_cast<ImTextureID>(m_AppLogoImGuiTexture->GetImGuiTextureId()),
                              { static_cast<float>(m_AppLogo->GetWidth()) / static_cast<float>(m_AppLogo->GetHeight()) *
                                    logoHeight,
                                logoHeight });

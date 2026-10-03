@@ -43,7 +43,7 @@ namespace Vega
         inline const VkPhysicalDeviceFeatures& GetPhysicalDeviceFeatures() const { return m_PhysicalDeviceFeatures; }
 
         uint32_t GetMemoryTypeIndex(uint32_t _TypeBits, VkMemoryPropertyFlags _Properties) const;
-        inline uint32_t GetMinUniformBufferOffsetAligment() const
+        inline size_t GetMinUniformBufferOffsetAligment() const
         {
             return m_PhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
         }

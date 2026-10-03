@@ -30,7 +30,7 @@ namespace Vega
         });
     }
 
-    void StaticMeshManager::Destroy()
+    void StaticMeshManager::OnDetach()
     {
         m_VertexBuffer->Destroy();
         m_IndexBuffer->Destroy();

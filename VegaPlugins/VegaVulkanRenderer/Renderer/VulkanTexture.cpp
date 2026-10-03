@@ -1,12 +1,13 @@
 #include "VulkanTexture.hpp"
 
-#include "Vega/Core/Assert.hpp"
-
 #include "Utils/VulkanUtils.hpp"
+#include "Vega/Core/Assert.hpp"
 #include "VulkanBase.hpp"
 #include "VulkanRenderBuffer.hpp"
 #include "VulkanRendererBackend.hpp"
+
 #include "backends/imgui_impl_vulkan.h"
+
 #include <format>
 #include <vulkan/vulkan_core.h>
 
@@ -140,26 +141,6 @@ namespace Vega
                                          VK_OBJECT_TYPE_IMAGE_VIEW, m_ImageArrayViews[i],
                                          std::format("{}_view_layer_{}", _Name.data(), i).c_str());
             }
-        }
-
-        if (m_Props.IsUsedForGui)
-        {
-            VkSamplerCreateInfo samplerInfo {
-                .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-                .magFilter = VK_FILTER_LINEAR,
-                .minFilter = VK_FILTER_LINEAR,
-                .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-                .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-                .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-                .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-                .maxAnisotropy = 1.0f,
-                .minLod = -1000,
-                .maxLod = 1000,
-            };
-            VK_CHECK(vkCreateSampler(logicalDevice, &samplerInfo, context.VkAllocator, &m_Sampler));
-
-            m_DescriptorSet =
-                ImGui_ImplVulkan_AddTexture(m_Sampler, m_ImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
     }
 
@@ -406,7 +387,7 @@ namespace Vega
                                    rendererBackend->GetVkContext().VkAllocator, &m_ImageView));
     }
 
-    void VulkanTexture::Destroy()
+    void VulkanTexture::OnDetach()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
@@ -435,17 +416,6 @@ namespace Vega
 
         vkDestroyImage(logicalDevice, m_Image, vkAllocator);
         m_Image = nullptr;
-
-        if (m_DescriptorSet != VK_NULL_HANDLE)
-        {
-            ImGui_ImplVulkan_RemoveTexture(m_DescriptorSet);
-        }
-        m_DescriptorSet = VK_NULL_HANDLE;
-        if (m_Sampler != VK_NULL_HANDLE)
-        {
-            vkDestroySampler(logicalDevice, m_Sampler, vkAllocator);
-        }
-        m_Sampler = VK_NULL_HANDLE;
     }
 
     void VulkanTexture::Resize(std::string_view _Name, uint32_t _NewWidth, uint32_t _NewHeight)
@@ -499,8 +469,6 @@ namespace Vega
     {
         VEGA_CORE_ASSERT(false, "TODO: Implement VulkanTexture::ClearDepthStencil");
     }
-
-    void* VulkanTexture::GetTextureGuiId() const { return reinterpret_cast<void*>(m_DescriptorSet); }
 
     static VkFormat ChannelsCountToVkFormat(uint32_t _ChannelCount, VkFormat _DefaultFormat)
     {

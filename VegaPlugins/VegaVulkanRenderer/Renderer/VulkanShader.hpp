@@ -1,9 +1,13 @@
 #pragma once
 
 #include "Vega/Renderer/Shader.hpp"
+#include "VulkanRenderBuffer.hpp"
+#include "VulkanSampler.hpp"
+#include "VulkanTexture.hpp"
 
-#include <array>
+#include <cstdint>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -12,36 +16,9 @@
 namespace Vega
 {
 
-    struct VulkanDescriptorState
-    {
-        std::vector<uint32_t> Generations;
-        std::vector<uint32_t> Ids;
-        std::vector<uint64_t> FrameNumbers;
-    };
-
-    struct VulkanUniformSamplerState
-    {
-        std::vector<ShaderUniform> Uniforms;
-
-        // TODO: Texture maps ???
-
-        VulkanDescriptorState DescriptorState;
-    };
-
-    struct VulkanShaderInstanceState
-    {
-        uint32_t Id;
-        size_t Offset;
-
-        std::vector<VkDescriptorSet> DescriptorSets;
-        std::vector<VulkanDescriptorState> UboDescriptorState;
-        std::vector<VulkanUniformSamplerState> SamplerUniforms;
-    };
-
     struct VulkanDescriptorSetConfig
     {
         std::vector<VkDescriptorSetLayoutBinding> Bindings;
-        uint32_t SamplerBindingIndexStart;
     };
 
     enum class VulkanPrimitiveTopologyTypeBase : uint32_t
@@ -94,7 +71,23 @@ namespace Vega
 
     struct VulkanShaderFrequencyInfo
     {
-        uint32_t UnoStride;
+        // TODO: We can make an array of uniform buffers
+        size_t UboSize = 0;
+        size_t UboStride = 0;
+        size_t UboOffset = 0;
+
+        std::vector<size_t> UboIndices;
+        std::vector<size_t> TextureIndices;
+        std::vector<size_t> SamplerIndices;
+    };
+
+    struct VulkanShaderFrequencyState
+    {
+        Ref<class VulkanRenderBuffer> UniformBuffer;
+        std::unordered_map<size_t, Ref<VulkanTexture>> UniformTextures;
+        std::unordered_map<size_t, Ref<VulkanSampler>> UniformSamplers;
+
+        std::vector<VkDescriptorSet> DescriptorSets;
     };
 
     /**
@@ -110,18 +103,30 @@ namespace Vega
                     const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override;
 
         void Initialize() override;
-        void Shutdown() override;
+        void OnDetach() override;
 
         bool Bind() override;
 
         void SetUniformBufferData(std::string_view _Name, const void* _Data, size_t _Size,
                                   ShaderUpdateFrequency _Frequency) override;
 
+        void SetUniformTexture(std::string_view _Name, Ref<class Texture> _Texture,
+                               ShaderUpdateFrequency _Frequency) override;
+
+        void SetUniformSampler(std::string_view _Name, Ref<Sampler> _Sampler,
+                               ShaderUpdateFrequency _Frequency) override;
+
+        void BindFrequency(ShaderUpdateFrequency _Frequency) override;
+        void ApplyFrequency(ShaderUpdateFrequency _Frequency) override;
+
     protected:
         void PrepareShaderData();
 
-        // TODO: Implement for all frequencies (now only per-draw)
-        VulkanDescriptorSetConfig SetupDescriptorSetByFrequency();
+        VulkanDescriptorSetConfig SetupDescriptorSetConfigAndFrequency(bool _IsNeedDoUniformBuffers,
+                                                                       const std::vector<ShaderUniform>& _Uniforms,
+                                                                       VulkanShaderFrequencyInfo& _OutFrequencyInfo);
+
+        void SetupFrequencyState(bool _IsNeedDoUniformBuffers, ShaderUpdateFrequency _Frequency);
 
         bool CreateModulesAndPipelines();
 
@@ -137,6 +142,22 @@ namespace Vega
         void BindPipeline(VkCommandBuffer _CommandBuffer, VkPipelineBindPoint _BindPoint,
                           const VulkanPipeline& _Pipeline);
 
+        size_t GetUniformSamplerCount(const std::vector<ShaderUniform>& _Uniforms) const;
+        size_t GetUniformTextureCount(const std::vector<ShaderUniform>& _Uniforms) const;
+        size_t GetUniformBufferCount(const std::vector<ShaderUniform>& _Uniforms) const;
+
+        const std::vector<ShaderUniform>& GetShaderUniformsForFrequency(ShaderUpdateFrequency _Frequency) const;
+
+        const VulkanShaderFrequencyInfo&
+        GetVulkanShaderFrequencyInfoForFrequency(ShaderUpdateFrequency _Frequency) const;
+
+        VulkanShaderFrequencyState& GetVulkanShaderFrequencyStateForFrequency(ShaderUpdateFrequency _Frequency);
+
+        const VulkanDescriptorSetConfig&
+        GetVulkanDescriptorSetConfigForFrequency(ShaderUpdateFrequency _Frequency) const;
+
+        size_t GetVulkanDescriptorSetConfigIndexForFrequency(ShaderUpdateFrequency _Frequency) const;
+
     protected:
         ShaderConfig m_ShaderConfig;
         std::vector<ShaderStageConfig> m_ShaderStageConfigs;
@@ -144,10 +165,10 @@ namespace Vega
 
         uint8_t m_LocalPushConstantsBlock[128] = { 0 };
 
-        std::vector<VulkanDescriptorSetConfig> m_DescriptorSets;
+        std::vector<VulkanDescriptorSetConfig> m_DescriptorSetConfigs;
         std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
 
-        uint32_t m_MaxDescriptorSetCount;
+        size_t m_MaxDescriptorSetCount;
 
         std::vector<VkDescriptorPoolSize> m_PoolSizes;
 
@@ -161,11 +182,19 @@ namespace Vega
         size_t m_BoundPipelineIndex;
         VkPrimitiveTopology m_CurentTopology;
 
-        uint32_t m_RequiredUboAlignment;
+        size_t m_RequiredUboAlignment;
 
         VulkanShaderFrequencyInfo m_PerFrameInfo;
+        VulkanShaderFrequencyState m_PerFrameState;
+        size_t m_VulkanDescriptorSetConfigIndexPerFrame = 0;
+
         VulkanShaderFrequencyInfo m_PerGroupInfo;
+        VulkanShaderFrequencyState m_PerGroupState;
+        size_t m_VulkanDescriptorSetConfigIndexPerGroup = 0;
+
         VulkanShaderFrequencyInfo m_PerDrawInfo;
+        VulkanShaderFrequencyState m_PerDrawState;
+        size_t m_VulkanDescriptorSetConfigIndexPerDraw = 0;
     };
 
 }    // namespace Vega

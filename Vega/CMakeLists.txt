@@ -21,10 +21,16 @@ set(SOURCES
     Source/Vega/Renderer/RendererBackendTypes.hpp
     Source/Vega/Renderer/RendererBackendApi.hpp
     Source/Vega/Renderer/Texture.hpp
+    Source/Vega/Renderer/Sampler.hpp
+    Source/Vega/Renderer/Material.hpp                                       Source/Vega/Renderer/Material.cpp
     Source/Vega/Renderer/FrameBuffer.hpp
     Source/Vega/Renderer/RenderBuffer.hpp                                   Source/Vega/Renderer/RenderBuffer.cpp
     Source/Vega/Renderer/RenderBufferAllocator.hpp                          Source/Vega/Renderer/RenderBufferAllocator.cpp
     Source/Vega/Renderer/Shader.hpp                                         Source/Vega/Renderer/Shader.cpp
+    
+    Source/Vega/Renderer/RenderGraph/RenderGraph.hpp                        Source/Vega/Renderer/RenderGraph/RenderGraph.cpp
+    Source/Vega/Renderer/RenderGraph/RenderGraphNode.hpp                    Source/Vega/Renderer/RenderGraph/RenderGraphNode.cpp
+    Source/Vega/Renderer/RenderGraph/MaterialRenderGraphNode.hpp            Source/Vega/Renderer/RenderGraph/MaterialRenderGraphNode.cpp
 
     Source/Vega/Scene/Scene.hpp                                             Source/Vega/Scene/Scene.cpp
 
@@ -38,8 +44,9 @@ set(SOURCES
 
     Source/Vega/Managers/Manager.hpp                                        Source/Vega/Managers/Manager.cpp
     Source/Vega/Managers/StaticMeshManager.hpp                              Source/Vega/Managers/StaticMeshManager.cpp
-    
-
+    Source/Vega/Managers/TextureManager.hpp                                 Source/Vega/Managers/TextureManager.cpp
+    Source/Vega/Managers/MaterialManager.hpp                                Source/Vega/Managers/MaterialManager.cpp
+    Source/Vega/Managers/ShaderManager.hpp                                  Source/Vega/Managers/ShaderManager.cpp
 
     # Source/Vega/Buffers/BufferLayout.h
     # Source/Vega/Buffers/FrameBuffer.h                            Source/Vega/Buffers/FrameBuffer.cpp
@@ -82,6 +89,8 @@ set(SOURCES
     Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl
     Source/Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl
     Source/Vega/ImGui/ImGuiImpl.hpp
+    Source/Vega/ImGui/ImGuiTextureWrapper.hpp
+    Source/Vega/ImGui/ImGuiFrameBufferWrapper.hpp
 
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h

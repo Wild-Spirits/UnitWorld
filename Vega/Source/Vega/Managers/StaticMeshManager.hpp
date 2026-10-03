@@ -3,6 +3,7 @@
 #include "Manager.hpp"
 #include "Vega/Renderer/RenderBuffer.hpp"
 
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 
 #include <string>
@@ -14,6 +15,7 @@ namespace Vega
     struct StaticMeshVertex
     {
         glm::vec3 Position;
+        glm::vec2 TexCoord;
     };
 
     typedef uint32_t StaticMeshIndex;
@@ -36,7 +38,7 @@ namespace Vega
         StaticMeshManager();
         virtual ~StaticMeshManager() = default;
 
-        virtual void Destroy() override;
+        virtual void OnDetach() override;
 
         StaticMeshManagerMeshInfo AddMesh(std::string_view _MeshName, const StaticMeshVertex* _Vertices,
                                           size_t _VertexCount, const StaticMeshIndex* _Indices, size_t _IndexCount,

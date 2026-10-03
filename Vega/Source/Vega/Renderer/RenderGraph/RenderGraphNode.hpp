@@ -3,13 +3,9 @@
 namespace Vega
 {
 
-    class Manager
+    class RenderGraphNode
     {
     public:
-        virtual ~Manager() = default;
-
-        virtual void OnDetach() = 0;
-
     protected:
     };
 

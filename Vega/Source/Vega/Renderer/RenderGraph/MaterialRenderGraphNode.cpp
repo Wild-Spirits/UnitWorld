@@ -1,6 +1,8 @@
-#include "Manager.hpp"
+#include "MaterialRenderGraphNode.hpp"
 
 namespace Vega
 {
+
+
 
 }    // namespace Vega

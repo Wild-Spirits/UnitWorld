@@ -2,8 +2,11 @@
 
 #include "Panels/EntityPropsPanel.hpp"
 #include "Panels/SceneHierarchyPanel.hpp"
+#include "Vega/ImGui/ImGuiFrameBufferWrapper.hpp"
+#include "Vega/ImGui/ImGuiTextureWrapper.hpp"
 #include "Vega/Layers/Layer.hpp"
 #include "Vega/Renderer/FrameBuffer.hpp"
+#include "Vega/Renderer/Sampler.hpp"
 #include "Vega/Scene/Scene.hpp"
 
 namespace Vega
@@ -32,10 +35,14 @@ namespace Vega
     protected:
         // std::vector<Ref<Texture>> m_ColorBuffers;
         Ref<FrameBuffer> m_FrameBuffer;
+        Ref<Sampler> m_FrameBufferSampler;
+        Ref<ImGuiFrameBufferWrapper> m_FrameBufferImGuiTexture;
 
         glm::u32vec2 m_ViewportDimensions;
 
         Ref<Texture> m_AppLogo;
+        Ref<Sampler> m_AppLogoSampler;
+        Ref<ImGuiTextureWrapper> m_AppLogoImGuiTexture;
         bool m_IsDrawImGuiDemoWindow = false;
 
         Ref<Scene> m_ActiveScene;

@@ -16,11 +16,14 @@ set(SOURCES
 
     ImGui/VulkanImGuiImpl.hpp                               ImGui/VulkanImGuiImpl.cpp
     ImGui/VulkanImGuiBackend.cpp
+    ImGui/VulkanImGuiTextureWrapper.hpp                     ImGui/VulkanImGuiTextureWrapper.cpp
+    ImGui/VulkanImGuiFrameBufferWrapper.hpp                 ImGui/VulkanImGuiFrameBufferWrapper.cpp
 
     Renderer/VulkanRendererBackend.hpp                      Renderer/VulkanRendererBackend.cpp
     Renderer/VulkanDeviceWrapper.hpp                        Renderer/VulkanDeviceWrapper.cpp
     Renderer/VulkanSwapchain.hpp                            Renderer/VulkanSwapchain.cpp
     Renderer/VulkanTexture.hpp                              Renderer/VulkanTexture.cpp
+    Renderer/VulkanSampler.hpp                              Renderer/VulkanSampler.cpp
     Renderer/VulkanFrameBuffer.hpp                          Renderer/VulkanFrameBuffer.cpp
     Renderer/VulkanRenderBuffer.hpp                         Renderer/VulkanRenderBuffer.cpp
     Renderer/VulkanShader.hpp                               Renderer/VulkanShader.cpp

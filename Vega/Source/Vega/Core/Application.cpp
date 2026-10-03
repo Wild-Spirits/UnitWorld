@@ -53,7 +53,7 @@ namespace Vega
 
         for (auto& [name, manager] : m_Managers)
         {
-            manager->Destroy();
+            manager->OnDetach();
         }
         m_Managers.clear();
 

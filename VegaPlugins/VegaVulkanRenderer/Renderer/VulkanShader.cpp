@@ -2,6 +2,7 @@
 
 #include "Vega/Core/Application.hpp"
 #include "Vega/Core/Assert.hpp"
+#include "Vega/Core/Base.hpp"
 #include "Vega/Utils/magic_enum.hpp"
 
 #include "Utils/VulkanUtils.hpp"
@@ -9,18 +10,20 @@
 #include "Vega/Utils/Log.hpp"
 #include "VulkanBase.hpp"
 #include "VulkanRendererBackend.hpp"
+#include "VulkanTexture.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <format>
 #include <fstream>
-#include <limits>
 
 #include <glm/glm.hpp>
 #include <shaderc/shaderc.h>
 #include <shaderc/status.h>
 #include <utility>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace Vega
@@ -29,6 +32,11 @@ namespace Vega
     static std::vector<char> ReadFile(const std::string& _Filename);
 
     static VkFormat ShaderAttributeTypeToVkFormat(ShaderAttributeType _Type);
+
+    static constexpr size_t GetAligned(size_t _Operand, size_t _Granularity)
+    {
+        return ((_Operand + (_Granularity - 1)) & ~(_Granularity - 1));
+    }
 
     void VulkanShader::Create(const ShaderConfig& _ShaderConfig,
                               const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs)
@@ -62,7 +70,7 @@ namespace Vega
                 .format = ShaderAttributeTypeToVkFormat(attributeType),
                 .offset = offset,
             });
-            offset += ShaderDataTypeSize(attributeType);
+            offset += GetShaderAttributeTypeSize(attributeType);
         }
 
         if (m_MaxDescriptorSetCount > 0)
@@ -71,7 +79,7 @@ namespace Vega
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-                .maxSets = m_MaxDescriptorSetCount,
+                .maxSets = static_cast<uint32_t>(m_MaxDescriptorSetCount),
                 .poolSizeCount = static_cast<uint32_t>(m_PoolSizes.size()),
                 .pPoolSizes = m_PoolSizes.data(),
             };
@@ -94,14 +102,14 @@ namespace Vega
                                      VK_OBJECT_TYPE_DESCRIPTOR_POOL, m_DescriptorPool,
                                      std::format("descriptor_pool_{}", m_ShaderConfig.Name).c_str());
 
-            for (size_t i = 0; i < m_DescriptorSets.size(); ++i)
+            for (size_t i = 0; i < m_DescriptorSetConfigs.size(); ++i)
             {
                 VkDescriptorSetLayoutCreateInfo layoutInfo = {
                     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                     .pNext = nullptr,
                     .flags = 0,
-                    .bindingCount = static_cast<uint32_t>(m_DescriptorSets[i].Bindings.size()),
-                    .pBindings = m_DescriptorSets[i].Bindings.data(),
+                    .bindingCount = static_cast<uint32_t>(m_DescriptorSetConfigs[i].Bindings.size()),
+                    .pBindings = m_DescriptorSetConfigs[i].Bindings.data(),
                 };
 
                 VkResult createLayoutResult =
@@ -191,25 +199,26 @@ namespace Vega
             return;
         }
 
-        m_RequiredUboAlignment = deviceWrapper.GetMinUniformBufferOffsetAligment();
-
         // TODO: Continue here : implement ubo
+        // TODO: Continue here : implement descriptor sets
 
-        m_PerDrawInfo.UnoStride = 128;
+        SetupFrequencyState(false, ShaderUpdateFrequency::kPerFrame);
+        SetupFrequencyState(true, ShaderUpdateFrequency::kPerGroup);
+        SetupFrequencyState(true, ShaderUpdateFrequency::kPerDraw);
     }
 
-    void VulkanShader::Shutdown()
+    void VulkanShader::OnDetach()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
 
-        for (size_t i = 0; i < m_DescriptorSets.size(); ++i)
+        for (size_t i = 0; i < m_DescriptorSetLayouts.size(); ++i)
         {
             vkDestroyDescriptorSetLayout(logicalDevice, m_DescriptorSetLayouts[i], vkAllocator);
         }
-        m_DescriptorSets.clear();
         m_DescriptorSetLayouts.clear();
+        m_DescriptorSetConfigs.clear();
 
         // TODO: clear gloabal descriptor sets ?
 
@@ -283,6 +292,7 @@ namespace Vega
             vkCmdPushConstants(commandBuffer, pipelineArray[m_BoundPipelineIndex].Layout,
                                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128,
                                m_LocalPushConstantsBlock);
+            return;
         }
 
         VulkanShaderFrequencyInfo* frequencyInfo = nullptr;
@@ -290,146 +300,326 @@ namespace Vega
         {
             case ShaderUpdateFrequency::kPerFrame: frequencyInfo = &m_PerFrameInfo; break;
             case ShaderUpdateFrequency::kPerGroup: frequencyInfo = &m_PerGroupInfo; break;
-            case ShaderUpdateFrequency::kPerDraw: frequencyInfo = &m_PerDrawInfo; break;
+            case ShaderUpdateFrequency::kPerDraw:
+                VEGA_CORE_ASSERT(false, "Somehow we reached kPerDraw in frequency info for SetUniformBufferData!");
+                return;
             default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return;
         }
 
-        if (!frequencyInfo)
+        VEGA_CORE_ASSERT(frequencyInfo, "Frequency info is not initialized!");
+
+        // TODO: implement uniform buffer data update
+    }
+
+    void VulkanShader::SetUniformTexture(std::string_view _Name, Ref<class Texture> _Texture,
+                                         ShaderUpdateFrequency _Frequency)
+    {
+        VulkanShaderFrequencyState& frequencyState = GetVulkanShaderFrequencyStateForFrequency(_Frequency);
+        const std::vector<ShaderUniform>& frequencyUniforms = GetShaderUniformsForFrequency(_Frequency);
+
+        const auto it = std::find_if(frequencyUniforms.begin(), frequencyUniforms.end(),
+                                     [&](const ShaderUniform& u) { return u.Name == _Name; });
+        if (it == frequencyUniforms.end())
         {
-            VEGA_CORE_ASSERT(false, "Frequency info is not initialized!");
+            VEGA_CORE_WARN("SetUniformTexture: uniform '{}' not found in shader '{}'", _Name, m_ShaderConfig.Name);
             return;
         }
+        size_t uniformIndex = static_cast<size_t>(std::distance(frequencyUniforms.begin(), it));
+        frequencyState.UniformTextures[uniformIndex] = StaticRefCast<VulkanTexture>(_Texture);
+    }
+
+    void VulkanShader::SetUniformSampler(std::string_view _Name, Ref<Sampler> _Sampler,
+                                         ShaderUpdateFrequency _Frequency)
+    {
+        VulkanShaderFrequencyState& frequencyState = GetVulkanShaderFrequencyStateForFrequency(_Frequency);
+        const std::vector<ShaderUniform>& frequencyUniforms = GetShaderUniformsForFrequency(_Frequency);
+
+        const auto it = std::find_if(frequencyUniforms.begin(), frequencyUniforms.end(),
+                                     [&](const ShaderUniform& u) { return u.Name == _Name; });
+        if (it == frequencyUniforms.end())
+        {
+            VEGA_CORE_WARN("SetUniformSampler: uniform '{}' not found in shader '{}'", _Name, m_ShaderConfig.Name);
+            return;
+        }
+        size_t uniformIndex = static_cast<size_t>(std::distance(frequencyUniforms.begin(), it));
+        frequencyState.UniformSamplers[uniformIndex] = StaticRefCast<VulkanSampler>(_Sampler);
+    }
+
+    void VulkanShader::BindFrequency(ShaderUpdateFrequency _Frequency)
+    {
+        // TODO: implement binding frequency
+    }
+
+    void VulkanShader::ApplyFrequency(ShaderUpdateFrequency _Frequency)
+    {
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+
+        const VulkanDescriptorSetConfig& descriptorSetConfig = GetVulkanDescriptorSetConfigForFrequency(_Frequency);
+        const VulkanShaderFrequencyInfo& frequencyInfo = GetVulkanShaderFrequencyInfoForFrequency(_Frequency);
+        const VulkanShaderFrequencyState& frequencyState = GetVulkanShaderFrequencyStateForFrequency(_Frequency);
+        const std::vector<ShaderUniform>& frequencyUniforms = GetShaderUniformsForFrequency(_Frequency);
+        const size_t descriptorSetIndex = GetVulkanDescriptorSetConfigIndexForFrequency(_Frequency);
+
+        VEGA_CORE_WARN("VulkanShader::ApplyFrequency GetCurrentImageIndex: {}",
+                       rendererBackend->GetCurrentImageIndex());
+        VEGA_CORE_WARN("VulkanShader::ApplyFrequency GetCurrentFrameIndex: {}",
+                       rendererBackend->GetCurrentFrameIndex());
+
+        std::vector<VkWriteDescriptorSet> descriptorWrites;
+        descriptorWrites.reserve(descriptorSetConfig.Bindings.size());
+
+        VkDescriptorBufferInfo uniformBufferInfo = {};
+        if (frequencyInfo.UboSize > 0)
+        {
+            // TODO: implement uniform buffer info
+        }
+
+        size_t samplerAndTextureCount = frequencyInfo.SamplerIndices.size() + frequencyInfo.TextureIndices.size();
+        std::vector<std::vector<VkDescriptorImageInfo>> imageInfos;
+        imageInfos.reserve(samplerAndTextureCount);
+        if (samplerAndTextureCount > 0)
+        {
+            // TODO: make this alloacation more efficient (may store in frequency info or state)
+            for (size_t textureIndex : frequencyInfo.TextureIndices)
+            {
+                size_t descriptorCount = descriptorSetConfig.Bindings[textureIndex].descriptorCount;
+                std::vector<VkDescriptorImageInfo> currentImageInfos(descriptorCount);
+                // currentImageInfos.reserve(descriptorCount);
+                for (VkDescriptorImageInfo& imageInfo : currentImageInfos)
+                {
+                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    imageInfo.imageView = frequencyState.UniformTextures.at(textureIndex)->GetTextureVkImageView();
+                    imageInfo.sampler = VK_NULL_HANDLE;
+                }
+                imageInfos.push_back(std::move(currentImageInfos));
+
+                VkWriteDescriptorSet textureWrite = {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .dstSet = frequencyState.DescriptorSets[rendererBackend->GetCurrentImageIndex()],
+                    .dstBinding = static_cast<uint32_t>(textureIndex),
+                    .descriptorCount = static_cast<uint32_t>(descriptorCount),
+                    .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                    .pImageInfo = imageInfos.back().data(),
+                };
+                descriptorWrites.push_back(textureWrite);
+            }
+            for (size_t samplerIndex : frequencyInfo.SamplerIndices)
+            {
+                size_t descriptorCount = descriptorSetConfig.Bindings[samplerIndex].descriptorCount;
+                std::vector<VkDescriptorImageInfo> currentImageInfos(descriptorCount);
+                // currentImageInfos.reserve(descriptorCount);
+                for (VkDescriptorImageInfo& imageInfo : currentImageInfos)
+                {
+                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                    imageInfo.imageView = VK_NULL_HANDLE;
+                    imageInfo.sampler = frequencyState.UniformSamplers.at(samplerIndex)->GetVkSampler();
+                }
+                imageInfos.push_back(std::move(currentImageInfos));
+
+                VkWriteDescriptorSet samplerWrite = {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .dstSet = frequencyState.DescriptorSets[rendererBackend->GetCurrentImageIndex()],
+                    .dstBinding = static_cast<uint32_t>(samplerIndex),
+                    .descriptorCount = static_cast<uint32_t>(descriptorCount),
+                    .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                    .pImageInfo = imageInfos.back().data(),
+                };
+                descriptorWrites.push_back(samplerWrite);
+            }
+        }
+
+        if (!descriptorWrites.empty())
+        {
+            vkUpdateDescriptorSets(rendererBackend->GetVkDeviceWrapper().GetLogicalDevice(),
+                                   static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        }
+
+        std::vector<VulkanPipeline>& pipelineArray =
+            m_ShaderConfig.Flags & ShaderFlagBits::kWireframe ? m_WireframesPipelines : m_Pipelines;
+        vkCmdBindDescriptorSets(rendererBackend->GetCurrentGraphicsCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipelineArray[m_BoundPipelineIndex].Layout, static_cast<uint32_t>(descriptorSetIndex),
+                                1, &frequencyState.DescriptorSets[rendererBackend->GetCurrentImageIndex()], 0, nullptr);
     }
 
     void VulkanShader::PrepareShaderData()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-        uint32_t imageCount = static_cast<uint32_t>(rendererBackend->GetVkSwapchain().GetImagesCount());
+        VulkanDeviceWrapper deviceWrapper = rendererBackend->GetVkDeviceWrapper();
 
-        // m_LocalPushConstantsBlock.fill(0);
+        size_t imageCount = rendererBackend->GetVkSwapchain().GetImagesCount();
+
+        m_RequiredUboAlignment = deviceWrapper.GetMinUniformBufferOffsetAligment();
 
         bool isHasPerFrame = !m_ShaderConfig.UniformsPerFrame.empty();
         bool isHasPerGroup = !m_ShaderConfig.UniformsPerGroup.empty();
         bool isHasPerDraw = !m_ShaderConfig.UniformsPerDraw.empty();
 
-        // TODO: Get SamplerCount for each frequency type
-        uint32_t maxSamplerCount = 0;
-        // TODO: Get ImageCount for each frequency type
-        uint32_t maxImageCount = 0;
-        // TODO: Get UboCount for each frequency type
-        uint32_t perDrawUboCount = 0;
-        uint32_t maxUboCount = perDrawUboCount;    // TODO: perFrameUboCount + perGroupUboCount +;
+        size_t perFrameSamplerCount = GetUniformSamplerCount(m_ShaderConfig.UniformsPerFrame) * imageCount;
+        size_t perGroupSamplerCount = GetUniformSamplerCount(m_ShaderConfig.UniformsPerGroup) * imageCount;
+        size_t perDrawSamplerCount = GetUniformSamplerCount(m_ShaderConfig.UniformsPerDraw) * imageCount;
+        size_t maxSamplerCount = perFrameSamplerCount + perGroupSamplerCount + perDrawSamplerCount;
 
-        uint32_t perFrameDescriptorSetCount = (isHasPerFrame ? 1 : 0) * imageCount;
-        uint32_t perGroupDescriptorSetCount = (isHasPerGroup ? 1 : 0) * imageCount * m_ShaderConfig.MaxGroups;
+        size_t perFrameImageCount = GetUniformTextureCount(m_ShaderConfig.UniformsPerFrame) * imageCount;
+        size_t perGroupImageCount = GetUniformTextureCount(m_ShaderConfig.UniformsPerGroup) * imageCount;
+        size_t perDrawImageCount = GetUniformTextureCount(m_ShaderConfig.UniformsPerDraw) * imageCount;
+        size_t maxImageCount = perFrameImageCount + perGroupImageCount + perDrawImageCount;
+
+        size_t perFrameUboCount = GetUniformBufferCount(m_ShaderConfig.UniformsPerFrame) * imageCount;
+        size_t perGroupUboCount = GetUniformBufferCount(m_ShaderConfig.UniformsPerGroup) * imageCount;
+        size_t perDrawUboCount = 0;
+        size_t maxUboCount = perFrameUboCount + perGroupUboCount + perDrawUboCount;
+
+        size_t perFrameDescriptorSetCount = (isHasPerFrame ? 1 : 0) * imageCount;
+        size_t perGroupDescriptorSetCount = (isHasPerGroup ? 1 : 0) * m_ShaderConfig.MaxGroups * imageCount;
         // TODO: may be this zero?
-        uint32_t perDrawDescriptorSetCount = (isHasPerDraw ? 1 : 0) * imageCount * m_ShaderConfig.MaxDrawIds;
+        size_t perDrawDescriptorSetCount = (isHasPerDraw ? 1 : 0) * m_ShaderConfig.MaxDrawIds * imageCount;
         m_MaxDescriptorSetCount = perFrameDescriptorSetCount + perGroupDescriptorSetCount + perDrawDescriptorSetCount;
 
         m_PoolSizes.reserve(3);
         if (maxUboCount > 0)
         {
-            m_PoolSizes.emplace_back(
-                VkDescriptorPoolSize { .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = maxUboCount });
+            m_PoolSizes.emplace_back(VkDescriptorPoolSize {
+                .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = static_cast<uint32_t>(maxUboCount),
+            });
         }
         if (maxSamplerCount > 0)
         {
-            m_PoolSizes.emplace_back(
-                VkDescriptorPoolSize { .type = VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = maxSamplerCount });
-            m_PoolSizes.emplace_back(
-                VkDescriptorPoolSize { .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = maxImageCount });
+            m_PoolSizes.emplace_back(VkDescriptorPoolSize {
+                .type = VK_DESCRIPTOR_TYPE_SAMPLER,
+                .descriptorCount = static_cast<uint32_t>(maxSamplerCount),
+            });
+            m_PoolSizes.emplace_back(VkDescriptorPoolSize {
+                .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                .descriptorCount = static_cast<uint32_t>(maxImageCount),
+            });
         }
 
-        // TODO: setup descriptor sets for per-frame, per-group, per-draw
+        // TODO: setup descriptor set configs for per-frame, per-group, per-draw
+        if (isHasPerFrame)
+        {
+            m_DescriptorSetConfigs.emplace_back(
+                SetupDescriptorSetConfigAndFrequency(true, m_ShaderConfig.UniformsPerFrame, m_PerFrameInfo));
+            m_PerFrameInfo.UboStride = GetAligned(m_PerFrameInfo.UboSize, m_RequiredUboAlignment);
+            m_VulkanDescriptorSetConfigIndexPerFrame = m_DescriptorSetConfigs.size() - 1;
+        }
+        if (isHasPerGroup)
+        {
+            m_DescriptorSetConfigs.emplace_back(
+                SetupDescriptorSetConfigAndFrequency(true, m_ShaderConfig.UniformsPerGroup, m_PerGroupInfo));
 
-        // if (isHasGlobalDescriptorSet)
-        // {
-        //     m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
-        //     m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
-        // }
-        // if (isHasInstanceDescriptorSet)
-        // {
-        //     m_DescriptorSets.emplace_back(VulkanDescriptorSetConfig {});
-        //     m_DescriptorSetLayouts.emplace_back(VK_NULL_HANDLE);
-        // }
+            m_PerGroupInfo.UboStride = GetAligned(m_PerGroupInfo.UboSize, m_RequiredUboAlignment);
+            m_VulkanDescriptorSetConfigIndexPerGroup = m_DescriptorSetConfigs.size() - 1;
+        }
+        if (isHasPerDraw)
+        {
+            m_DescriptorSetConfigs.emplace_back(
+                SetupDescriptorSetConfigAndFrequency(false, m_ShaderConfig.UniformsPerDraw, m_PerDrawInfo));
+            m_PerDrawInfo.UboStride = GetAligned(m_PerDrawInfo.UboSize, 128);
+            m_VulkanDescriptorSetConfigIndexPerDraw = m_DescriptorSetConfigs.size() - 1;
+        }
 
-        // if (isHasGlobalDescriptorSet)
-        // {
-        //     VulkanDescriptorSetConfig& setConfig = m_DescriptorSets.front();
-        //     uint32_t uboCount = m_ShaderConfig.GlobalUnformCount ? 1 : 0;
-        //     setConfig.Bindings.reserve(uboCount + m_ShaderConfig.GlobalUniformSamplerCount);
-        //     if (uboCount > 0)
-        //     {
-        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-        //             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        //             .descriptorCount = 1,
-        //             .stageFlags = VK_SHADER_STAGE_ALL,
-        //         });
-        //     }
-
-        //     setConfig.SamplerBindingIndexStart = uboCount;
-
-        //     for (uint32_t i = 0; i < m_ShaderConfig.GlobalUniformSamplerCount; ++i)
-        //     {
-        //         const ShaderUniform& uniform = m_ShaderConfig.Uniforms[m_ShaderConfig.GlobalSamplerIndices[i]];
-        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-        //             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        //             .descriptorCount = glm::max(static_cast<uint32_t>(1), uniform.ArrayLength),
-        //             .stageFlags = VK_SHADER_STAGE_ALL,
-        //         });
-        //     }
-        // }
-
-        // if (isHasInstanceDescriptorSet)
-        // {
-        //     VulkanDescriptorSetConfig& setConfig = m_DescriptorSets.back();
-        //     uint32_t uboCount = m_ShaderConfig.InstanceUniformCount ? 1 : 0;
-        //     setConfig.Bindings.reserve(uboCount + m_ShaderConfig.InstanceUniformSamplerCount);
-        //     if (uboCount > 0)
-        //     {
-        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-        //             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        //             .descriptorCount = 1,
-        //             .stageFlags = VK_SHADER_STAGE_ALL,
-        //         });
-        //     }
-
-        //     setConfig.SamplerBindingIndexStart = uboCount;
-
-        //     for (uint32_t i = 0; i < m_ShaderConfig.InstanceUniformSamplerCount; ++i)
-        //     {
-        //         const ShaderUniform& uniform = m_ShaderConfig.Uniforms[m_ShaderConfig.InstanceSamplerIndices[i]];
-        //         setConfig.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
-        //             .binding = static_cast<uint32_t>(setConfig.Bindings.size()),
-        //             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        //             .descriptorCount = glm::max(static_cast<uint32_t>(1), uniform.ArrayLength),
-        //             .stageFlags = VK_SHADER_STAGE_ALL,
-        //         });
-        //     }
-        // }
-
-        // m_GlobalUboDescriptorStates.Generations.resize(imageCount);
-        // m_GlobalUboDescriptorStates.Ids.resize(imageCount);
-        // m_GlobalUboDescriptorStates.FrameNumbers.resize(imageCount);
-        // for (size_t i = 0; i < imageCount; ++i)
-        // {
-        //     m_GlobalUboDescriptorStates.Generations[i] = std::numeric_limits<uint32_t>::max();
-        //     m_GlobalUboDescriptorStates.Ids[i] = std::numeric_limits<uint32_t>::max();
-        //     m_GlobalUboDescriptorStates.FrameNumbers[i] = std::numeric_limits<uint64_t>::max();
-        // }
-
-        // m_InstanceStates.resize(m_ShaderConfig.MaxInstances);
-        // for (size_t i = 0; i < m_ShaderConfig.MaxInstances; ++i)
-        // {
-        //     m_InstanceStates[i].Id = std::numeric_limits<uint32_t>::max();
-        // }
+        m_DescriptorSetLayouts.resize(m_DescriptorSetConfigs.size());
     }
 
-    // TODO: Implement for all frequencies (now only per-draw)
-    VulkanDescriptorSetConfig VulkanShader::SetupDescriptorSetByFrequency() { return VulkanDescriptorSetConfig {}; }
+    VulkanDescriptorSetConfig
+    VulkanShader::SetupDescriptorSetConfigAndFrequency(bool _IsNeedDoUniformBuffers,
+                                                       const std::vector<ShaderUniform>& _Uniforms,
+                                                       VulkanShaderFrequencyInfo& _OutFrequencyInfo)
+    {
+        size_t uniformBufferCount = GetUniformBufferCount(_Uniforms);
+        size_t uniformSamplerCount = GetUniformSamplerCount(_Uniforms);
+        size_t uniformTextureCount = GetUniformTextureCount(_Uniforms);
+
+        size_t totalBindingCount = uniformBufferCount + uniformSamplerCount + uniformTextureCount;
+
+        VulkanDescriptorSetConfig result;
+
+        if (totalBindingCount == 0)
+        {
+            return result;
+        }
+
+        result.Bindings.reserve(totalBindingCount);
+        uint32_t bindingIndex = 0;
+
+        for (const ShaderUniform& uniform : _Uniforms)
+        {
+            if (IsShaderUniformTypeSampler(uniform.Type) || IsShaderUniformTypeTexture(uniform.Type))
+            {
+                result.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
+                    .binding = bindingIndex++,
+                    .descriptorType = IsShaderUniformTypeSampler(uniform.Type) ? VK_DESCRIPTOR_TYPE_SAMPLER
+                                                                               : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                    .descriptorCount = glm::max(1u, uniform.ArrayLength),
+                    .stageFlags = VK_SHADER_STAGE_ALL,
+                });
+                if (IsShaderUniformTypeSampler(uniform.Type))
+                {
+                    _OutFrequencyInfo.SamplerIndices.push_back(static_cast<uint32_t>(result.Bindings.size() - 1));
+                }
+                else
+                {
+                    _OutFrequencyInfo.TextureIndices.push_back(static_cast<uint32_t>(result.Bindings.size() - 1));
+                }
+            }
+            else if (_IsNeedDoUniformBuffers)
+            {
+                VEGA_CORE_ASSERT(bindingIndex == 0, "UniformBuffer must be at binding 0");
+
+                result.Bindings.emplace_back(VkDescriptorSetLayoutBinding {
+                    .binding = bindingIndex++,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorCount = 1u,
+                    .stageFlags = VK_SHADER_STAGE_ALL,
+                });
+                _OutFrequencyInfo.UboIndices.push_back(static_cast<uint32_t>(result.Bindings.size() - 1));
+                _OutFrequencyInfo.UboSize += uniform.Size * glm::max(1u, uniform.ArrayLength);
+            }
+        }
+
+        return result;
+    }
+
+    void VulkanShader::SetupFrequencyState(bool _IsNeedDoUniformBuffers, ShaderUpdateFrequency _Frequency)
+    {
+        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
+        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
+        size_t imageCount = rendererBackend->GetVkSwapchain().GetImagesCount();
+
+        size_t descriptorSetIndex = GetVulkanDescriptorSetConfigIndexForFrequency(_Frequency);
+        VulkanShaderFrequencyState& frequencyState = GetVulkanShaderFrequencyStateForFrequency(_Frequency);
+
+        // TODO: fill all state data with default texutres and samplers
+
+        std::vector<VkDescriptorSetLayout> layouts;
+        layouts.resize(imageCount, m_DescriptorSetLayouts[descriptorSetIndex]);
+        VkDescriptorSetAllocateInfo allocInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .pNext = nullptr,
+            .descriptorPool = m_DescriptorPool,
+            .descriptorSetCount = static_cast<uint32_t>(imageCount),
+            .pSetLayouts = layouts.data(),
+        };
+        frequencyState.DescriptorSets.resize(imageCount);
+        VkResult allocateResult =
+            vkAllocateDescriptorSets(logicalDevice, &allocInfo, frequencyState.DescriptorSets.data());
+        if (allocateResult != VK_SUCCESS)
+        {
+            VEGA_CORE_CRITICAL("Failed to allocate descriptor sets for shader {} with error: {}", m_ShaderConfig.Name,
+                               VulkanResultString(allocateResult, true));
+            VEGA_CORE_ASSERT(false, "Failed to allocate descriptor sets!");
+        }
+
+        for (uint32_t i = 0; i < imageCount; ++i)
+        {
+            VK_SET_DEBUG_OBJECT_NAME(
+                rendererBackend->GetVkContext().PfnSetDebugUtilsObjectNameEXT, logicalDevice,
+                VK_OBJECT_TYPE_DESCRIPTOR_SET, frequencyState.DescriptorSets[i],
+                std::format("desc_set_shader_{}_set_idx_{}_img_idx_{}", m_ShaderConfig.Name, descriptorSetIndex, i)
+                    .c_str());
+        }
+    }
 
     bool VulkanShader::CreateModulesAndPipelines()
     {
@@ -1003,6 +1193,87 @@ namespace Vega
                                     const VulkanPipeline& _Pipeline)
     {
         vkCmdBindPipeline(_CommandBuffer, _BindPoint, _Pipeline.Handle);
+    }
+
+    size_t VulkanShader::GetUniformSamplerCount(const std::vector<ShaderUniform>& _Uniforms) const
+    {
+        return std::count_if(_Uniforms.begin(), _Uniforms.end(),
+                             [](const ShaderUniform& uniform) { return IsShaderUniformTypeSampler(uniform.Type); });
+    }
+
+    size_t VulkanShader::GetUniformTextureCount(const std::vector<ShaderUniform>& _Uniforms) const
+    {
+        return std::count_if(_Uniforms.begin(), _Uniforms.end(),
+                             [](const ShaderUniform& uniform) { return IsShaderUniformTypeTexture(uniform.Type); });
+    }
+
+    size_t VulkanShader::GetUniformBufferCount(const std::vector<ShaderUniform>& _Uniforms) const
+    {
+        return std::count_if(_Uniforms.begin(), _Uniforms.end(), [](const ShaderUniform& uniform) {
+            return !(IsShaderUniformTypeSampler(uniform.Type) || IsShaderUniformTypeTexture(uniform.Type));
+        });
+    }
+
+    const std::vector<ShaderUniform>&
+    VulkanShader::GetShaderUniformsForFrequency(ShaderUpdateFrequency _Frequency) const
+    {
+        switch (_Frequency)
+        {
+            case ShaderUpdateFrequency::kPerFrame: return m_ShaderConfig.UniformsPerFrame;
+            case ShaderUpdateFrequency::kPerGroup: return m_ShaderConfig.UniformsPerGroup;
+            case ShaderUpdateFrequency::kPerDraw: return m_ShaderConfig.UniformsPerDraw;
+            default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return m_ShaderConfig.UniformsPerFrame;
+        }
+    }
+
+    const VulkanShaderFrequencyInfo&
+    VulkanShader::GetVulkanShaderFrequencyInfoForFrequency(ShaderUpdateFrequency _Frequency) const
+    {
+        switch (_Frequency)
+        {
+            case ShaderUpdateFrequency::kPerFrame: return m_PerFrameInfo;
+            case ShaderUpdateFrequency::kPerGroup: return m_PerGroupInfo;
+            case ShaderUpdateFrequency::kPerDraw: return m_PerDrawInfo;
+            default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return m_PerFrameInfo;
+        }
+    }
+
+    VulkanShaderFrequencyState&
+    VulkanShader::GetVulkanShaderFrequencyStateForFrequency(ShaderUpdateFrequency _Frequency)
+    {
+        switch (_Frequency)
+        {
+            case ShaderUpdateFrequency::kPerFrame: return m_PerFrameState;
+            case ShaderUpdateFrequency::kPerGroup: return m_PerGroupState;
+            case ShaderUpdateFrequency::kPerDraw: return m_PerDrawState;
+            default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return m_PerFrameState;
+        }
+    }
+
+    const VulkanDescriptorSetConfig&
+    VulkanShader::GetVulkanDescriptorSetConfigForFrequency(ShaderUpdateFrequency _Frequency) const
+    {
+        switch (_Frequency)
+        {
+            case ShaderUpdateFrequency::kPerFrame:
+                return m_DescriptorSetConfigs[m_VulkanDescriptorSetConfigIndexPerFrame];
+            case ShaderUpdateFrequency::kPerGroup:
+                return m_DescriptorSetConfigs[m_VulkanDescriptorSetConfigIndexPerGroup];
+            case ShaderUpdateFrequency::kPerDraw:
+                return m_DescriptorSetConfigs[m_VulkanDescriptorSetConfigIndexPerDraw];
+            default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return m_DescriptorSetConfigs[0];
+        }
+    }
+
+    size_t VulkanShader::GetVulkanDescriptorSetConfigIndexForFrequency(ShaderUpdateFrequency _Frequency) const
+    {
+        switch (_Frequency)
+        {
+            case ShaderUpdateFrequency::kPerFrame: return m_VulkanDescriptorSetConfigIndexPerFrame;
+            case ShaderUpdateFrequency::kPerGroup: return m_VulkanDescriptorSetConfigIndexPerGroup;
+            case ShaderUpdateFrequency::kPerDraw: return m_VulkanDescriptorSetConfigIndexPerDraw;
+            default: VEGA_CORE_ASSERT(false, "Unknown ShaderUpdateFrequency!"); return 0;
+        }
     }
 
     std::vector<char> ReadFile(const std::string& _Filename)

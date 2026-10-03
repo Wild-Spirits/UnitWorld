@@ -14,7 +14,10 @@ namespace Vega
         VulkanFrameBuffer(const FrameBufferProps& _Props);
         virtual ~VulkanFrameBuffer() override = default;
 
-        const std::vector<std::vector<Ref<VulkanTexture>>>& GetVulkanTextures() const { return m_VulkanTextures; }
+        const std::vector<std::vector<Ref<VulkanTexture>>>& GetVulkanColorTextures() const
+        {
+            return m_VulkanColorTextures;
+        }
         const std::vector<std::vector<Ref<VulkanTexture>>>& GetVulkanDepthTextures() const
         {
             return m_VulkanDepthTextures;
@@ -28,9 +31,7 @@ namespace Vega
         uint32_t GetWidth() const override { return m_Props.Width; }
         uint32_t GetHeight() const override { return m_Props.Height; }
 
-        void* GetInGuiRenderId() const override;
-
-        void TransitToGui() override;
+        void TransitColorAttachmentToGui(size_t _AttachmentIndex = 0) override;
 
         void BindAndClearColorDepthStencil() override;
 
@@ -39,7 +40,7 @@ namespace Vega
     protected:
         FrameBufferProps m_Props;
 
-        std::vector<std::vector<Ref<VulkanTexture>>> m_VulkanTextures;
+        std::vector<std::vector<Ref<VulkanTexture>>> m_VulkanColorTextures;
 
         std::vector<std::vector<Ref<VulkanTexture>>> m_VulkanDepthTextures;
     };

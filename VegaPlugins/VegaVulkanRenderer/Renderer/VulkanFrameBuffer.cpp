@@ -18,19 +18,17 @@ namespace Vega
 
         if (m_Props.IsUsedInFlight)
         {
-            m_VulkanTextures.emplace_back();
+            m_VulkanColorTextures.emplace_back();
             for (size_t i = 0; i < imageCount; ++i)
             {
                 Ref<VulkanTexture> texture = CreateRef<VulkanTexture>();
-                texture->Create(std::format("VulkanFrameBuffer_{}_{}", m_Props.Name, i),
-                                {
-                                    .Width = m_Props.Width,
-                                    .Height = m_Props.Height,
-                                    .ChannelCount = 4,
-                                    .IsUsedForGui = m_Props.IsUsedForGui,
-                                });
+                texture->Create(std::format("VulkanFrameBuffer_{}_{}", m_Props.Name, i), TextureProps {
+                                                                                             .Width = m_Props.Width,
+                                                                                             .Height = m_Props.Height,
+                                                                                             .ChannelCount = 4,
+                                                                                         });
 
-                m_VulkanTextures[0].push_back(texture);
+                m_VulkanColorTextures[0].push_back(texture);
             }
         }
         // TODO: Implement else
@@ -44,20 +42,20 @@ namespace Vega
         // TODO: find a better way to wait for all operations to be done on the framebuffer
         VK_CHECK(vkDeviceWaitIdle(logicalDevice));
 
-        for (auto& textures : m_VulkanTextures)
+        for (auto& textures : m_VulkanColorTextures)
         {
             for (auto& texture : textures)
             {
-                texture->Destroy();
+                texture->OnDetach();
             }
         }
-        m_VulkanTextures.clear();
+        m_VulkanColorTextures.clear();
 
         for (auto& textures : m_VulkanDepthTextures)
         {
             for (auto& texture : textures)
             {
-                texture->Destroy();
+                texture->OnDetach();
             }
         }
         m_VulkanDepthTextures.clear();
@@ -72,17 +70,10 @@ namespace Vega
         Create();
     }
 
-    void* VulkanFrameBuffer::GetInGuiRenderId() const
+    void VulkanFrameBuffer::TransitColorAttachmentToGui(size_t _AttachmentIndex)
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-
-        return m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->GetTextureGuiId();
-    }
-
-    void VulkanFrameBuffer::TransitToGui()
-    {
-        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-        m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->TransitionImageLayout(
+        m_VulkanColorTextures[_AttachmentIndex][rendererBackend->GetCurrentImageIndex()]->TransitionImageLayout(
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, rendererBackend->GetCurrentGraphicsCommandBuffer());
     }
 
@@ -90,7 +81,7 @@ namespace Vega
     {
         glm::vec4 clearColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 
-        for (auto& textures : m_VulkanTextures)
+        for (auto& textures : m_VulkanColorTextures)
         {
             for (auto& texture : textures)
             {
@@ -110,7 +101,7 @@ namespace Vega
     void VulkanFrameBuffer::Bind()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-        m_VulkanTextures[0][rendererBackend->GetCurrentImageIndex()]->TransitionImageLayout(
+        m_VulkanColorTextures[0][rendererBackend->GetCurrentImageIndex()]->TransitionImageLayout(
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, rendererBackend->GetCurrentGraphicsCommandBuffer());
     }
 

@@ -79,7 +79,7 @@ namespace Vega
         void BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
                             Ref<FrameBuffer> _FrameBuffer) override;
 
-        void TestFoo() override;
+        virtual void DrawIndexed(uint32_t _IndexCount = 0) override;
 
         void EndRendering() override;
 
@@ -97,6 +97,10 @@ namespace Vega
 
         Ref<ImGuiImpl> CreateImGuiImpl() override;
 
+        Ref<ImGuiTextureWrapper> CreateImGuiTextureWrapper(Ref<Texture> _Texture, Ref<Sampler> _Sampler) override;
+        Ref<ImGuiFrameBufferWrapper> CreateImGuiFrameBufferWrapper(Ref<FrameBuffer> _FrameBuffer,
+                                                                   Ref<Sampler> _Sampler) override;
+
         Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                  const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override;
 
@@ -105,7 +109,9 @@ namespace Vega
                                                  VkCommandPool _CommandPool);
 
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override;
-        Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data) override;
+        Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) override;
+
+        Ref<Sampler> CreateSampler(std::string_view _Name, const SamplerProps& _Props) override;
 
         Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override;
 

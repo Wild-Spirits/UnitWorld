@@ -2,18 +2,36 @@
 #include "Vega/Core/Application.hpp"
 
 #include "Vega/Managers/StaticMeshManager.hpp"
+#include "Vega/Renderer/Shader.hpp"
 #include "Vega/Scene/Components/StaticMeshComponent.hpp"
 #include "Vega/Scene/Scene.hpp"
+#include <vector>
 
 namespace Vega::SceneSystems
 {
 
     SceneSystemStaticMeshDraw::SceneSystemStaticMeshDraw()
     {
+        Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
+
+        m_TestTexture = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo_ws.png", TextureProps {});
+        m_TestTextureSampler = rendererBackend->CreateSampler("AppLogoSampler", SamplerProps {});
+
+        std::vector<ShaderUniform> perGroupUniforms = {
+            ShaderUniform {
+                           .Name = "albedoTexture",
+                           .Type = ShaderUniformType::kTexture2d,
+                           },
+            ShaderUniform {
+                           .Name = "albedoSampler",
+                           .Type = ShaderUniformType::kSampler2d,
+                           }
+        };
         m_Shader = Application::Get().GetRendererBackend()->CreateShader(
             ShaderConfig {
-                .Name = "EditorLayerTestShader",
-                .Attributes = { ShaderAttributeType::kFloat3 },
+                .Name = "SceneSystemStaticMeshDraw",
+                .Attributes = { ShaderAttributeType::kFloat3, ShaderAttributeType::kFloat2 },
+                .UniformsPerGroup = perGroupUniforms,
         },
             { ShaderStageConfig {
                   .Type = ShaderStageConfig::ShaderStageType::kVertex,
@@ -25,7 +43,7 @@ namespace Vega::SceneSystems
               } });
     }
 
-    void SceneSystemStaticMeshDraw::Destroy() { m_Shader->Shutdown(); }
+    void SceneSystemStaticMeshDraw::Destroy() { m_Shader->OnDetach(); }
 
     void SceneSystemStaticMeshDraw::OnUpdate(Scene* _Scene) { }
 
@@ -42,10 +60,17 @@ namespace Vega::SceneSystems
                 const Components::TransformComponent& transformComp) {
                 // TODO: Continue implementation
                 // Need to get StaticMeshManager from Application
+                m_Shader->SetUniformTexture("albedoTexture", m_TestTexture, ShaderUpdateFrequency::kPerGroup);
+                m_Shader->SetUniformSampler("albedoSampler", m_TestTextureSampler, ShaderUpdateFrequency::kPerGroup);
+                m_Shader->ApplyFrequency(ShaderUpdateFrequency::kPerGroup);
                 m_Shader->SetUniformBufferData("perDrawUbo.model", transformComp.GetTransformMatrix(),
                                                ShaderUpdateFrequency::kPerDraw);
                 staticMeshManager->BindMesh(meshComp.MeshName);
-                rendererBackend->TestFoo();
+                // rendererBackend->TestFoo();
+
+                // TODO: Actually we need to add objects to some render graph nodes
+                // StaticMeshRenderNode::AddMesh(transform, mesh, material)
+                // Store material descriptor sets in render grapth node
             });
     }
 

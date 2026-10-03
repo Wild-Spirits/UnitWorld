@@ -2,14 +2,18 @@
 
 #include "FrameBuffer.hpp"
 #include "RenderBuffer.hpp"
+#include "Sampler.hpp"
 #include "Shader.hpp"
 #include "Texture.hpp"
 #include "Vega/Core/Base.hpp"
-
 #include "Vega/Core/Window.hpp"
+#include "Vega/ImGui/ImGuiFrameBufferWrapper.hpp"
 #include "Vega/ImGui/ImGuiImpl.hpp"
+#include "Vega/ImGui/ImGuiTextureWrapper.hpp"
 #include "Vega/Plugins/PluginLibrary.hpp"
 #include "Vega/Renderer/RendererBackendApi.hpp"
+
+#include "glm/ext/vector_float2.hpp"
 
 namespace Vega
 {
@@ -56,7 +60,8 @@ namespace Vega
 
         virtual void BeginRendering(const glm::ivec2& _ViewportOffset, const glm::uvec2& _ViewportSize,
                                     Ref<FrameBuffer> _FrameBuffer) = 0;
-        virtual void TestFoo() {};
+
+        virtual void DrawIndexed(uint32_t _IndexCount = 0) = 0;
 
         virtual void EndRendering() = 0;
         virtual void FrameCommandListEnd() = 0;
@@ -79,15 +84,20 @@ namespace Vega
         virtual Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                          const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) = 0;
         virtual Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) = 0;
-        virtual Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data) = 0;
+        virtual Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) = 0;
         Ref<Texture> CreateTexture(std::string_view _Name, const std::filesystem::path& _Filename,
                                    const TextureProps& _Props);
+
+        virtual Ref<Sampler> CreateSampler(std::string_view _Name, const SamplerProps& _Props) = 0;
 
         virtual Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) = 0;
 
         virtual Ref<RenderBuffer> CreateRenderBuffer(const RenderBufferProps& _Props) = 0;
 
         virtual Ref<ImGuiImpl> CreateImGuiImpl() = 0;
+        virtual Ref<ImGuiTextureWrapper> CreateImGuiTextureWrapper(Ref<Texture> _Texture, Ref<Sampler> _Sampler) = 0;
+        virtual Ref<ImGuiFrameBufferWrapper> CreateImGuiFrameBufferWrapper(Ref<FrameBuffer> _FrameBuffer,
+                                                                           Ref<Sampler> _Sampler) = 0;
 
     protected:
         static CreateReturnValue CreateVulkanRendererBackend();

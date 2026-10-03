@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Vega/Renderer/FrameBuffer.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
 
 namespace Vega
@@ -37,6 +36,18 @@ namespace Vega
         Ref<ImGuiImpl> CreateImGuiImpl() override;
 
         // TODO: implement
+        Ref<ImGuiTextureWrapper> CreateImGuiTextureWrapper(Ref<Texture> _Texture, Ref<Sampler> _Sampler) override
+        {
+            return nullptr;
+        }
+        // TODO: implement
+        Ref<ImGuiFrameBufferWrapper> CreateImGuiFrameBufferWrapper(Ref<FrameBuffer> _FrameBuffer,
+                                                                   Ref<Sampler> _Sampler) override
+        {
+            return nullptr;
+        }
+
+        // TODO: implement
         Ref<Shader> CreateShader(const ShaderConfig& _ShaderConfig,
                                  const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) override
         {
@@ -45,16 +56,22 @@ namespace Vega
 
         // TODO: implement
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override { return nullptr; }
-        Ref<Texture> CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data) override
+        // TODO: implement
+        Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) override
         {
             return nullptr;
         }
+
+        // TODO: implement
+        Ref<Sampler> CreateSampler(std::string_view _Name, const SamplerProps& _Props) override { return nullptr; }
 
         // TODO: implement
         Ref<FrameBuffer> CreateFrameBuffer(const FrameBufferProps& _Props) override { return nullptr; }
 
         // TODO: implement
         Ref<RenderBuffer> CreateRenderBuffer(const RenderBufferProps& _Props) override { return nullptr; }
+
+        virtual void DrawIndexed(uint32_t _IndexCount = 0) override { }
     };
 
 }    // namespace Vega

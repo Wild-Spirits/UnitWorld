@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Vega/Core/Assert.hpp"
+#include "Sampler.hpp"
+#include "Texture.hpp"
 
 #include <numeric>
 #include <string>
@@ -44,28 +45,6 @@ namespace Vega
         kUint32,
     };
 
-    static uint32_t ShaderDataTypeSize(ShaderAttributeType _Type)
-    {
-        switch (_Type)
-        {
-            case ShaderAttributeType::kFloat: return 4;
-            case ShaderAttributeType::kFloat2: return 4 * 2;
-            case ShaderAttributeType::kFloat3: return 4 * 3;
-            case ShaderAttributeType::kFloat4: return 4 * 4;
-            case ShaderAttributeType::kMat3: return 4 * 3 * 3;
-            case ShaderAttributeType::kMat4: return 4 * 4 * 4;
-            case ShaderAttributeType::kInt8: return 1;
-            case ShaderAttributeType::kUint8: return 1;
-            case ShaderAttributeType::kInt16: return 2;
-            case ShaderAttributeType::kUint16: return 2;
-            case ShaderAttributeType::kInt32: return 4;
-            case ShaderAttributeType::kUint32: return 4;
-        }
-
-        VEGA_CORE_ASSERT(false, "Unknown ShaderAttributeType!");
-        return 0;
-    }
-
     enum class FaceCullMode : uint32_t
     {
         kNone = 0U,
@@ -92,6 +71,13 @@ namespace Vega
 
     }    // namespace PrimitiveTopologyTypeBits
 
+    enum class ShaderUpdateFrequency
+    {
+        kPerFrame,
+        kPerGroup,
+        kPerDraw,
+    };
+
     enum class ShaderUniformType : uint32_t
     {
         kFloat = 0U,
@@ -112,15 +98,8 @@ namespace Vega
         kSampler1dArray,
         kSampler2dArray,
         kSamplerCubeArray,
-        kTexture2D,
+        kTexture2d,
         kStruct,
-    };
-
-    enum class ShaderUpdateFrequency
-    {
-        kPerFrame,
-        kPerGroup,
-        kPerDraw,
     };
 
     struct ShaderUniform
@@ -131,29 +110,33 @@ namespace Vega
         uint32_t ArrayLength;
     };
 
+    uint32_t GetShaderAttributeTypeSize(ShaderAttributeType _Type);
+    bool IsShaderUniformTypeSampler(ShaderUniformType _Type);
+    bool IsShaderUniformTypeTexture(ShaderUniformType _Type);
+
     struct ShaderConfig
     {
         std::string Name;
 
-        uint32_t MaxGroups = 512;
-        uint32_t MaxDrawIds = 512;
+        std::vector<ShaderAttributeType> Attributes = {};
 
         std::vector<ShaderUniform> UniformsPerFrame = {};
         std::vector<ShaderUniform> UniformsPerGroup = {};
         std::vector<ShaderUniform> UniformsPerDraw = {};
+
+        uint32_t MaxGroups = 512;
+        uint32_t MaxDrawIds = 512;
 
         FaceCullMode CullMode = FaceCullMode::kBack;
         PrimitiveTopologyTypes TopologyTypes = PrimitiveTopologyTypeBits::kTriangleList;
 
         ShaderFlags Flags = ShaderFlagBits::kColorWrite;
 
-        std::vector<ShaderAttributeType> Attributes = {};
-
         uint32_t GetAttibutesStride() const
         {
             return std::accumulate(
                 Attributes.cbegin(), Attributes.cend(), 0u,
-                [](uint32_t sum, const ShaderAttributeType& attr) { return sum + ShaderDataTypeSize(attr); });
+                [](uint32_t sum, const ShaderAttributeType& attr) { return sum + GetShaderAttributeTypeSize(attr); });
         }
     };
 
@@ -171,20 +154,6 @@ namespace Vega
         std::string Path;
     };
 
-    static const char* ShaderStageTypeToString(ShaderStageConfig::ShaderStageType _Type)
-    {
-        switch (_Type)
-        {
-            case ShaderStageConfig::ShaderStageType::kVertex: return "Vertex";
-            case ShaderStageConfig::ShaderStageType::kFragment: return "Fragment";
-            case ShaderStageConfig::ShaderStageType::kCompute: return "Compute";
-            case ShaderStageConfig::ShaderStageType::kGeometry: return "Geometry";
-        }
-
-        VEGA_CORE_ASSERT(false, "Unknown ShaderStageType!");
-        return "";
-    }
-
     /** @brief The winding order of vertices, used to determine what is the front-face of a triangle. */
     enum class RendererWinding
     {
@@ -193,6 +162,8 @@ namespace Vega
         /** @brief Counter-clockwise vertex winding. */
         kRendererWindingClockwise = 1
     };
+
+    const char* ShaderStageTypeToString(ShaderStageConfig::ShaderStageType _Type);
 
     class Shader
     {
@@ -203,7 +174,7 @@ namespace Vega
                             const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs) = 0;
 
         virtual void Initialize() = 0;
-        virtual void Shutdown() = 0;
+        virtual void OnDetach() = 0;
 
         virtual bool Bind() = 0;
 
@@ -215,6 +186,15 @@ namespace Vega
 
         virtual void SetUniformBufferData(std::string_view _Name, const void* _Data, size_t _Size,
                                           ShaderUpdateFrequency _Frequency) = 0;
+
+        virtual void SetUniformTexture(std::string_view _Name, Ref<Texture> _Texture,
+                                       ShaderUpdateFrequency _Frequency) = 0;
+
+        virtual void SetUniformSampler(std::string_view _Name, Ref<Sampler> _Sampler,
+                                       ShaderUpdateFrequency _Frequency) = 0;
+
+        virtual void BindFrequency(ShaderUpdateFrequency _Frequency) = 0;
+        virtual void ApplyFrequency(ShaderUpdateFrequency _Frequency) = 0;
 
     protected:
     };

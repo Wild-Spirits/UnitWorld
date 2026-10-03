@@ -1,24 +1,25 @@
 #include "VulkanRendererBackend.hpp"
 
+#include "ImGui/VulkanImGuiFrameBufferWrapper.hpp"
+#include "ImGui/VulkanImGuiImpl.hpp"
+#include "ImGui/VulkanImGuiTextureWrapper.hpp"
+#include "Platform/Platform.hpp"
+#include "Platform/VulkanPlatform.hpp"
+#include "Utils/VulkanUtils.hpp"
 #include "Vega/Core/Application.hpp"
 #include "Vega/Core/Base.hpp"
 #include "Vega/Utils/Log.hpp"
-
-#include "Platform/Platform.hpp"
 #include "VulkanFrameBuffer.hpp"
 #include "VulkanRenderBuffer.hpp"
+#include "VulkanSampler.hpp"
 #include "VulkanShader.hpp"
 #include "VulkanTexture.hpp"
-#include <memory>
 
 #ifdef VEGA_PLATFORM_DESKTOP
     #include "GLFW/glfw3.h"
 #endif
 
-#include "ImGui/VulkanImGuiImpl.hpp"
-#include "Platform/VulkanPlatform.hpp"
-#include "Utils/VulkanUtils.hpp"
-
+#include <memory>
 #include <shaderc/shaderc.h>
 
 namespace Vega
@@ -324,7 +325,7 @@ namespace Vega
 
         for (Ref<VulkanTexture> depthBufferTexture : m_DepthBufferTextures)
         {
-            depthBufferTexture->Destroy();
+            depthBufferTexture->OnDetach();
         }
         m_DepthBufferTextures.clear();
 
@@ -776,14 +777,14 @@ namespace Vega
                                                Ref<FrameBuffer> _FrameBuffer)
     {
         Ref<VulkanFrameBuffer> vulkanFrameBuffer = StaticRefCast<VulkanFrameBuffer>(_FrameBuffer);
-        VulkanBeginRendering(_ViewportOffset, _ViewportSize, vulkanFrameBuffer->GetVulkanTextures(),
+        VulkanBeginRendering(_ViewportOffset, _ViewportSize, vulkanFrameBuffer->GetVulkanColorTextures(),
                              vulkanFrameBuffer->GetVulkanDepthTextures());
     }
 
-    void VulkanRendererBackend::TestFoo()
+    void VulkanRendererBackend::DrawIndexed(uint32_t _IndexCount)
     {
         VkCommandBuffer commandBuffer = GetCurrentGraphicsCommandBuffer();
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, _IndexCount, 1, 0, 0, 0);
     }
 
     void VulkanRendererBackend::EndRendering() { VulkanEndRendering(); }
@@ -941,6 +942,20 @@ namespace Vega
 
     Ref<ImGuiImpl> VulkanRendererBackend::CreateImGuiImpl() { return CreateRef<VulkanImGuiImpl>(); }
 
+    Ref<ImGuiTextureWrapper> VulkanRendererBackend::CreateImGuiTextureWrapper(Ref<Texture> _Texture,
+                                                                              Ref<Sampler> _Sampler)
+    {
+        return CreateRef<VulkanImGuiTextureWrapper>(StaticRefCast<VulkanTexture>(_Texture),
+                                                    StaticRefCast<VulkanSampler>(_Sampler));
+    }
+
+    Ref<ImGuiFrameBufferWrapper> VulkanRendererBackend::CreateImGuiFrameBufferWrapper(Ref<FrameBuffer> _FrameBuffer,
+                                                                                      Ref<Sampler> _Sampler)
+    {
+        return CreateRef<VulkanImGuiFrameBufferWrapper>(StaticRefCast<VulkanFrameBuffer>(_FrameBuffer),
+                                                        StaticRefCast<VulkanSampler>(_Sampler));
+    }
+
     Ref<Shader> VulkanRendererBackend::CreateShader(const ShaderConfig& _ShaderConfig,
                                                     const std::initializer_list<ShaderStageConfig>& _ShaderStageConfigs)
     {
@@ -1000,12 +1015,20 @@ namespace Vega
         return texture;
     }
 
-    Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, TextureProps _Props, uint8_t* _Data)
+    Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, const TextureProps& _Props,
+                                                      uint8_t* _Data)
     {
         Ref<VulkanTexture> texture = CreateRef<VulkanTexture>();
         texture->Create(_Name, _Props, _Data);
 
         return texture;
+    }
+
+    Ref<Sampler> VulkanRendererBackend::CreateSampler(std::string_view _Name, const SamplerProps& _Props)
+    {
+        Ref<VulkanSampler> sampler = CreateRef<VulkanSampler>(_Name, _Props);
+
+        return sampler;
     }
 
     Ref<FrameBuffer> VulkanRendererBackend::CreateFrameBuffer(const FrameBufferProps& _Props)

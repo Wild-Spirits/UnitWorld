@@ -2,24 +2,12 @@
 
 #include "Vega/Core/Base.hpp"
 
-#include "glm/ext/vector_float4.hpp"
-
-#include <string_view>
-
 namespace Vega
 {
 
-    struct TextureProps
+    struct SamplerProps
     {
-        enum class TextureType : uint32_t
-        {
-            k2D = 0,
-            kCubeMap,
-            k3D,
-            kArray,
-        };
-
-        enum TextureFlagBits : uint32_t
+        enum SamplerFlagBits : uint32_t
         {
             kNone = 0,
 
@@ -63,35 +51,20 @@ namespace Vega
             kDepthAttachment = BIT(17),
         };
 
-        typedef uint32_t TextureFlags;
+        typedef uint32_t SamplerFlags;
 
-        TextureType Type;
-        uint32_t Width;
-        uint32_t Height;
-        uint32_t ChannelCount;
         uint32_t MipLevels = 1;
         uint32_t ArraySize = 1;
-        TextureFlags Flags = TextureFlagBits::kNone;
+        SamplerFlags Flags = SamplerFlagBits::kNone;
     };
 
-    class Texture
+    class Sampler
     {
     public:
-        Texture() = default;
-        virtual ~Texture() = default;
+        Sampler() = default;
+        virtual ~Sampler() = default;
 
-        virtual void Create(std::string_view _Name, const TextureProps& _Props) = 0;
-        virtual void Create(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) = 0;
         virtual void OnDetach() = 0;
-        virtual void Resize(std::string_view _Name, uint32_t _NewWidth, uint32_t _NewHeight) = 0;
-
-        virtual void ClearColor(const glm::vec4& _ClearColor) = 0;
-        virtual void ClearDepthStencil() = 0;
-
-        virtual uint32_t GetWidth() const = 0;
-        virtual uint32_t GetHeight() const = 0;
-        virtual uint32_t GetMipLevels() const = 0;
-        virtual uint32_t GetArraySize() const = 0;
     };
 
 }    // namespace Vega

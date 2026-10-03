@@ -20,6 +20,9 @@ namespace Vega::SceneSystems
         virtual void OnRender(Scene* _Scene) override;
 
     protected:
+        Ref<Texture> m_TestTexture;
+        Ref<Sampler> m_TestTextureSampler;
+
         Ref<Shader> m_Shader;
     };
 
