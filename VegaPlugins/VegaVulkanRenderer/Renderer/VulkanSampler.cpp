@@ -1,5 +1,6 @@
 #include "VulkanSampler.hpp"
 
+#include "Utils/VulkanUtils.hpp"
 #include "VulkanRendererBackend.hpp"
 
 namespace Vega
@@ -25,6 +26,8 @@ namespace Vega
             .maxLod = 1000,
         };
         VK_CHECK(vkCreateSampler(logicalDevice, &samplerInfo, context.VkAllocator, &m_Sampler));
+        VK_SET_DEBUG_OBJECT_NAME(context.PfnSetDebugUtilsObjectNameEXT, logicalDevice, VK_OBJECT_TYPE_SAMPLER,
+                                 m_Sampler, _Name.data());
     }
 
     void VulkanSampler::OnDetach()
