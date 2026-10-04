@@ -15,6 +15,8 @@
 #include "Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp"
 
 #include "glm/fwd.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -96,7 +98,8 @@ namespace Vega
         staticMeshManager->AddMesh("TestMesh", vertices.data(), vertices.size(), indices.data(), indices.size(), false);
 
         m_ActiveScene = CreateRef<Scene>();
-        m_ActiveScene->AddSceneSystem(CreateRef<SceneSystems::SceneSystemStaticMeshDraw>());
+        m_StaticMeshDrawSystem = CreateRef<SceneSystems::SceneSystemStaticMeshDraw>();
+        m_ActiveScene->AddSceneSystem(m_StaticMeshDrawSystem);
 
         m_ActiveScene->CreateEntity("Test1");
         m_ActiveScene->CreateEntity("Test2");
@@ -121,6 +124,7 @@ namespace Vega
 
     void EditorLayer::OnDetach()
     {
+        m_StaticMeshDrawSystem.reset();
         m_ActiveScene.reset();
 
         m_AppLogoImGuiTexture->OnDetach();
@@ -158,6 +162,9 @@ namespace Vega
                                         m_FrameBuffer);
 
         rendererBackend->SetActiveViewport({ 0.0f, 0.0f }, { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() });
+
+        UpdateTestCameraMatrices();
+        m_StaticMeshDrawSystem->SetViewProjection(m_TestCamera.View, m_TestCamera.Projection);
 
         m_ActiveScene->OnRender();
 
@@ -212,6 +219,7 @@ namespace Vega
             auto dockIdRight = ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Right, 0.2f, nullptr, &dockspaceId);
 
             ImGui::DockBuilderDockWindow("Props", dockIdLeft);
+            ImGui::DockBuilderDockWindow("Test Camera", dockIdLeft);
             ImGui::DockBuilderDockWindow("Scene", dockIdRight);
             ImGui::DockBuilderDockWindow("Viewport", dockspaceId);
             ImGui::DockBuilderDockWindow("Assets", dockIdBottom);
@@ -267,10 +275,86 @@ namespace Vega
         }
         ImGui::End();
 
+        if (ImGui::Begin("Test Camera"))
+        {
+            DrawGuiTestCamera();
+        }
+        ImGui::End();
+
         if (m_IsDrawImGuiDemoWindow)
         {
             ImGui::ShowDemoWindow(&m_IsDrawImGuiDemoWindow);
         }
+    }
+
+    void EditorLayer::UpdateTestCameraMatrices()
+    {
+        if (m_TestCamera.IsManualMatrices)
+        {
+            return;
+        }
+
+        glm::mat4 cameraTransform = glm::translate(glm::mat4(1.0f), m_TestCamera.Position) *
+                                    glm::mat4_cast(glm::quat(glm::radians(m_TestCamera.RotationDeg)));
+        m_TestCamera.View = glm::inverse(cameraTransform);
+
+        float aspectRatio = m_FrameBuffer->GetHeight() > 0 ? static_cast<float>(m_FrameBuffer->GetWidth()) /
+                                                                 static_cast<float>(m_FrameBuffer->GetHeight())
+                                                           : 1.0f;
+        // NOTE: Vulkan depth range is [0, 1]. Y is not flipped here because the viewport is already flipped
+        m_TestCamera.Projection = glm::perspectiveRH_ZO(glm::radians(m_TestCamera.FovYDeg), aspectRatio,
+                                                        m_TestCamera.Near, m_TestCamera.Far);
+    }
+
+    // Draws matrix by rows, glm stores it by columns
+    static bool DrawGuiMatrix(const char* _Label, glm::mat4& _Matrix)
+    {
+        bool isChanged = false;
+
+        ImGui::PushID(_Label);
+        ImGui::TextUnformatted(_Label);
+        for (int row = 0; row < 4; ++row)
+        {
+            glm::vec4 rowValues = { _Matrix[0][row], _Matrix[1][row], _Matrix[2][row], _Matrix[3][row] };
+            ImGui::PushID(row);
+            if (ImGui::DragFloat4("##Row", &rowValues.x, 0.01f))
+            {
+                for (int column = 0; column < 4; ++column)
+                {
+                    _Matrix[column][row] = rowValues[column];
+                }
+                isChanged = true;
+            }
+            ImGui::PopID();
+        }
+        ImGui::PopID();
+
+        return isChanged;
+    }
+
+    void EditorLayer::DrawGuiTestCamera()
+    {
+        ImGui::Checkbox("Edit matrices manually", &m_TestCamera.IsManualMatrices);
+
+        ImGui::BeginDisabled(m_TestCamera.IsManualMatrices);
+        ImGui::DragFloat3("Position", &m_TestCamera.Position.x, 0.01f);
+        ImGui::DragFloat3("Rotation", &m_TestCamera.RotationDeg.x, 0.1f);
+        ImGui::DragFloat("FOV Y", &m_TestCamera.FovYDeg, 0.1f, 1.0f, 179.0f);
+        ImGui::DragFloat("Near", &m_TestCamera.Near, 0.01f, 0.001f, m_TestCamera.Far);
+        ImGui::DragFloat("Far", &m_TestCamera.Far, 0.1f, m_TestCamera.Near, 10000.0f);
+        ImGui::EndDisabled();
+
+        if (ImGui::Button("Reset"))
+        {
+            m_TestCamera = EditorTestCamera {};
+        }
+
+        ImGui::Separator();
+
+        ImGui::BeginDisabled(!m_TestCamera.IsManualMatrices);
+        DrawGuiMatrix("View", m_TestCamera.View);
+        DrawGuiMatrix("Projection", m_TestCamera.Projection);
+        ImGui::EndDisabled();
     }
 
     bool EditorLayer::GuiDrawBeginMenu(std::string_view _Title)

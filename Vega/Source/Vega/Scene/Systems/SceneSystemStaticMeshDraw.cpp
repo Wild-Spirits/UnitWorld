@@ -17,6 +17,19 @@ namespace Vega::SceneSystems
         m_TestTexture = rendererBackend->CreateTexture("AppLogo", "Assets/Textures/logo_ws.png", TextureProps {});
         m_TestTextureSampler = rendererBackend->CreateSampler("AppLogoSampler", SamplerProps {});
 
+        // NOTE: Packed into one UBO in declaration order, must match perFrameUbo in test.vert
+        std::vector<ShaderUniform> perFrameUniforms = {
+            ShaderUniform {
+                           .Name = "view",
+                           .Size = sizeof(glm::mat4),
+                           .Type = ShaderUniformType::kMatrix4,
+                           },
+            ShaderUniform {
+                           .Name = "proj",
+                           .Size = sizeof(glm::mat4),
+                           .Type = ShaderUniformType::kMatrix4,
+                           }
+        };
         std::vector<ShaderUniform> perGroupUniforms = {
             ShaderUniform {
                            .Name = "albedoTexture",
@@ -31,6 +44,7 @@ namespace Vega::SceneSystems
             ShaderConfig {
                 .Name = "SceneSystemStaticMeshDraw",
                 .Attributes = { ShaderAttributeType::kFloat3, ShaderAttributeType::kFloat2 },
+                .UniformsPerFrame = perFrameUniforms,
                 .UniformsPerGroup = perGroupUniforms,
                 // Culling disabled: flipped viewport inverts winding, so the NDC-space quad would be culled as
                 // back-face
@@ -58,6 +72,10 @@ namespace Vega::SceneSystems
     void SceneSystemStaticMeshDraw::OnRender(Scene* _Scene)
     {
         m_Shader->Bind();
+
+        m_Shader->SetUniformBufferData("view", m_View, ShaderUpdateFrequency::kPerFrame);
+        m_Shader->SetUniformBufferData("proj", m_Projection, ShaderUpdateFrequency::kPerFrame);
+        m_Shader->ApplyFrequency(ShaderUpdateFrequency::kPerFrame);
 
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
         Ref<StaticMeshManager> staticMeshManager =

@@ -27,8 +27,9 @@ namespace Vega
         virtual void Bind(size_t _Offset = 0) override;
         // void Unbind();
 
-        // void MapMemory();
-        // void UnmapMemory();
+        // NOTE: Only for host visible buffers. Memory stays mapped until UnmapMemory
+        void* MapMemory(size_t _Offset = 0, size_t _Size = VK_WHOLE_SIZE);
+        void UnmapMemory();
 
         // void Flush();
 
