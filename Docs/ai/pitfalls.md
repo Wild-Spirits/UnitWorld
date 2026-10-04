@@ -28,7 +28,8 @@
   `registry.get<TransformComponent>` в обход `Entity` сломает пометку `TransformDirtyComponent`. Используй
   `GetTransform()` + `SetTransform*`.
 - **Нет мировых трансформов.** `GetTransformMatrix()` — локальная матрица без учёта родителей.
-- **`DestroyEntity` не реализован.**
+- **`DestroyEntity` удаляет всё поддерево.** Сохранённые `entt::entity`/`Entity` после этого невалидны, перед
+  использованием проверяй `GetRegistry().valid(...)`.
 - **Менеджеры по строковому имени.** Опечатка в имени `GetManager("…")` — ассерт в Debug и исключение
   `std::out_of_range` в Release.
 - **Ресайз пропускает кадр**: при `m_Resizing` бэкенд пересоздаёт swapchain, слои в этом кадре не рендерятся.

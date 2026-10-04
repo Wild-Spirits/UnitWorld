@@ -138,7 +138,9 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
 - Системы реализуют `Destroy`, `OnUpdate(Scene*, Timestep)`, `OnRender(Scene*)`. `Scene::OnUpdate` и
   `Scene::OnRender` вызывают соответствующий метод у всех систем в порядке добавления. `Destroy` вызывается
   из деструктора сцены.
-- `DestroyEntity` не реализован.
+- `DestroyEntity` удаляет сущность вместе со всем поддеревом: корень отвязывается от родителя и соседей
+  (`ChildCount` родителя уменьшается), затем потомки уничтожаются раньше предков. Хэндлы удалённых сущностей,
+  сохранённые снаружи (например, выделение в редакторе), становятся невалидными — проверяй `registry.valid`.
 
 ## Плагины
 

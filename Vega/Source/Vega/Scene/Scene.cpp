@@ -156,7 +156,53 @@ namespace Vega
 
     void Scene::DestroyEntity(Entity _Entity)
     {
-        // TODO: Implement proper entity destruction with hierarchy updates
+        VEGA_CORE_ASSERT(_Entity.m_Scene == this, "Entity belongs to another scene!");
+        VEGA_CORE_ASSERT(m_Registry.valid(_Entity.m_Handle), "Invalid entity!");
+
+        // Unlink the subtree root from its parent and siblings, the rest of the subtree is destroyed as a whole
+        Components::HierarchyComponent& hierarchyComp =
+            m_Registry.get<Components::HierarchyComponent>(_Entity.m_Handle);
+        if (hierarchyComp.PrevSibling != entt::null)
+        {
+            m_Registry.get<Components::HierarchyComponent>(hierarchyComp.PrevSibling).NextSibling =
+                hierarchyComp.NextSibling;
+        }
+        if (hierarchyComp.NextSibling != entt::null)
+        {
+            m_Registry.get<Components::HierarchyComponent>(hierarchyComp.NextSibling).PrevSibling =
+                hierarchyComp.PrevSibling;
+        }
+        if (hierarchyComp.Parent != entt::null)
+        {
+            Components::HierarchyComponent& parentHierarchyComp =
+                m_Registry.get<Components::HierarchyComponent>(hierarchyComp.Parent);
+            if (parentHierarchyComp.FirstChild == _Entity.m_Handle)
+            {
+                parentHierarchyComp.FirstChild = hierarchyComp.NextSibling;
+            }
+            parentHierarchyComp.ChildCount--;
+        }
+
+        std::vector<entt::entity> entitiesToDestroy;
+        std::stack<entt::entity> entitiesToProcess;
+        entitiesToProcess.push(_Entity.m_Handle);
+
+        while (!entitiesToProcess.empty())
+        {
+            entt::entity currentEntity = entitiesToProcess.top();
+            entitiesToProcess.pop();
+            entitiesToDestroy.push_back(currentEntity);
+
+            entt::entity childEntity = m_Registry.get<Components::HierarchyComponent>(currentEntity).FirstChild;
+            while (childEntity != entt::null)
+            {
+                entitiesToProcess.push(childEntity);
+                childEntity = m_Registry.get<Components::HierarchyComponent>(childEntity).NextSibling;
+            }
+        }
+
+        // Reversed pre-order: descendants are destroyed before their ancestors
+        m_Registry.destroy(entitiesToDestroy.rbegin(), entitiesToDestroy.rend());
     }
 
 }    // namespace Vega
