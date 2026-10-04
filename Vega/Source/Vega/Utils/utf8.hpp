@@ -3,8 +3,8 @@
 #include <format>
 #include <string>
 
-static std::string operator"" _S(const char8_t* str, std::size_t) { return reinterpret_cast<const char*>(str); }
-static const char* operator"" _C(const char8_t* str, std::size_t) { return reinterpret_cast<const char*>(str); }
+inline std::string operator"" _S(const char8_t* str, std::size_t) { return reinterpret_cast<const char*>(str); }
+inline const char* operator"" _C(const char8_t* str, std::size_t) { return reinterpret_cast<const char*>(str); }
 
 #if defined(__cpp_char8_t)
     #define _U8_RES(x) x

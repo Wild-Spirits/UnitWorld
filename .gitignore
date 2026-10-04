@@ -10,3 +10,6 @@ out/
 **.vcxproj.filters
 **.vcxproj.user
 **.csproj
+
+*.spv
+imgui.ini

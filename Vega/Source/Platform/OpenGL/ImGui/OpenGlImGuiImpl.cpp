@@ -42,7 +42,7 @@ namespace Vega
         // ImGui_ImplOpenGL3_CreateFontsTexture();
     }
 
-    void OpenGlImGuiImpl::BackupCurrentWindowContext() { GLFWwindow* m_CurrentWindowContext = glfwGetCurrentContext(); }
+    void OpenGlImGuiImpl::BackupCurrentWindowContext() { m_CurrentWindowContext = glfwGetCurrentContext(); }
 
     void OpenGlImGuiImpl::RestoreCurrentWindowContext() { glfwMakeContextCurrent(m_CurrentWindowContext); }
 

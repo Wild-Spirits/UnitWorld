@@ -23,7 +23,7 @@ set(SOURCES
     Source/Vega/Renderer/Texture.hpp
     Source/Vega/Renderer/Sampler.hpp
     Source/Vega/Renderer/Material.hpp                                       Source/Vega/Renderer/Material.cpp
-    Source/Vega/Renderer/FrameBuffer.hpp
+    Source/Vega/Renderer/FrameBuffer.hpp                                    Source/Vega/Renderer/FrameBuffer.cpp
     Source/Vega/Renderer/RenderBuffer.hpp                                   Source/Vega/Renderer/RenderBuffer.cpp
     Source/Vega/Renderer/RenderBufferAllocator.hpp                          Source/Vega/Renderer/RenderBufferAllocator.cpp
     Source/Vega/Renderer/Shader.hpp                                         Source/Vega/Renderer/Shader.cpp
@@ -47,6 +47,7 @@ set(SOURCES
     Source/Vega/Managers/TextureManager.hpp                                 Source/Vega/Managers/TextureManager.cpp
     Source/Vega/Managers/MaterialManager.hpp                                Source/Vega/Managers/MaterialManager.cpp
     Source/Vega/Managers/ShaderManager.hpp                                  Source/Vega/Managers/ShaderManager.cpp
+    Source/Vega/Managers/SamplerManager.hpp                                 Source/Vega/Managers/SamplerManager.cpp
 
     # Source/Vega/Buffers/BufferLayout.h
     # Source/Vega/Buffers/FrameBuffer.h                            Source/Vega/Buffers/FrameBuffer.cpp
@@ -148,6 +149,7 @@ find_package(OpenGL REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
+target_compile_options(${PROJECT_NAME} PRIVATE ${VEGA_WARNING_FLAGS})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
 target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARIES} glm args glfw glew stb EnTT::EnTT imgui nfd)
 

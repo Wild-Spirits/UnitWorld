@@ -69,8 +69,6 @@ namespace Vega
     void Application::PushLayer(Ref<Layer> _Layer)
     {
         m_LayerStack.PushLayer(_Layer);
-
-        const float model = 10;
         _Layer->OnAttach(m_EventManager);
     }
 
@@ -150,7 +148,10 @@ namespace Vega
                         m_RendererBackend->FrameSubmit();
                         m_RendererBackend->FramePresent();
                     }
-                    m_GuiLayer->OnExternalViewportsRender();
+                    if (m_GuiLayer)
+                    {
+                        m_GuiLayer->OnExternalViewportsRender();
+                    }
                 }
             }
 

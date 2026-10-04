@@ -35,6 +35,7 @@ message(STATUS "Found Vulkan: $ENV{VULKAN_SDK}")
 
 add_library(${PROJECT_NAME} SHARED)
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
+target_compile_options(${PROJECT_NAME} PRIVATE ${VEGA_WARNING_FLAGS})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(${PROJECT_NAME} PRIVATE VEGA_VULKAN_RENDERER_EXPORTS)
 

@@ -34,13 +34,18 @@ if(MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Editor)
 
     # TODO: add to release: /O2 /Oi /Ot /Ob2 /GL 
-	set(ERROR_FLAGS "${ERROR_FLAGS} /Wall /WX /sdl")
+    # CMake adds /W3 by default; remove it to avoid D9025 when targets set /W4
+    string(REGEX REPLACE "/W[0-4]" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    # Warnings from third-party headers included with <> are suppressed.
+    # C4100 (unreferenced parameter) is disabled: stubs and default virtual implementations are common
+    set(VEGA_WARNING_FLAGS /W4 /wd4100 /external:anglebrackets /external:W0)
     # set(SANITIZER_FLAGS "/fsanitize=address")
 else()
-	set(ERROR_FLAGS "${ERROR_FLAGS} -Wall -Wpedantic -Werror -g")
+    set(VEGA_WARNING_FLAGS -Wall -Wextra -Wpedantic -Wno-unused-parameter)
     set(SANITIZER_FLAGS "-fsanitize=leak,undefined,address")
 endif()
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ERROR_FLAGS}")
+# Applied only to project targets (Vega, plugins, Editor), not to FetchContent dependencies:
+# target_compile_options(<target> PRIVATE ${VEGA_WARNING_FLAGS})
 
 
 option(SANITIZE "Enable sanitizers" ON)

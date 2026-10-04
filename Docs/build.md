@@ -70,7 +70,14 @@ Vulkan-бэкенд ImGui подключается в самом плагине 
 - `BIN_FOLDER="<каталог сборки>"` — отсюда грузятся плагины: `BIN_FOLDER/VegaPlugins/VegaVulkanRenderer/VegaVulkanRenderer.dll`.
 - `OPENGL`.
 
-Строгие флаги предупреждений (`/Wall /WX`) объявлены, но **не применяются** (строка с `ERROR_FLAGS` закомментирована).
+Предупреждения задаются переменной `VEGA_WARNING_FLAGS` в корневом `CMakeLists.txt` и подключаются только к целям
+проекта (`Vega`, `VegaVulkanRenderer`, `Editor`) через `target_compile_options(... PRIVATE ${VEGA_WARNING_FLAGS})`, а не к
+зависимостям из `FetchContent`. Новую цель тоже нужно подключать этой строкой.
+
+- MSVC: `/W4 /wd4100 /external:anglebrackets /external:W0`. Без `/WX`, предупреждения ошибками не считаются. C4100
+  (неиспользуемый параметр) отключено из-за заглушек; предупреждения из сторонних заголовков, подключённых через `<>`,
+  подавляются. `/W3`, который CMake добавляет по умолчанию, удаляется из `CMAKE_CXX_FLAGS`.
+- GCC/Clang: `-Wall -Wextra -Wpedantic -Wno-unused-parameter`.
 Опция `SANITIZE` (ON) реально влияет только на не-MSVC компиляторы.
 
 ## Запуск

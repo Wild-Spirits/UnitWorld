@@ -18,6 +18,7 @@ set(SOURCES
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 
 add_executable(${PROJECT_NAME} ${SOURCES})
+target_compile_options(${PROJECT_NAME} PRIVATE ${VEGA_WARNING_FLAGS})
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(${PROJECT_NAME} PRIVATE Vega)
 
