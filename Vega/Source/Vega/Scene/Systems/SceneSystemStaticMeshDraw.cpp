@@ -32,7 +32,8 @@ namespace Vega::SceneSystems
                 .Name = "SceneSystemStaticMeshDraw",
                 .Attributes = { ShaderAttributeType::kFloat3, ShaderAttributeType::kFloat2 },
                 .UniformsPerGroup = perGroupUniforms,
-                // Culling disabled: flipped viewport inverts winding, so the NDC-space quad would be culled as back-face
+                // Culling disabled: flipped viewport inverts winding, so the NDC-space quad would be culled as
+                // back-face
                 .CullMode = FaceCullMode::kNone,
         },
             { ShaderStageConfig {
@@ -45,7 +46,12 @@ namespace Vega::SceneSystems
               } });
     }
 
-    void SceneSystemStaticMeshDraw::Destroy() { m_Shader->OnDetach(); }
+    void SceneSystemStaticMeshDraw::Destroy()
+    {
+        m_Shader->OnDetach();
+        m_TestTextureSampler->OnDetach();
+        m_TestTexture->OnDetach();
+    }
 
     void SceneSystemStaticMeshDraw::OnUpdate(Scene* _Scene) { }
 

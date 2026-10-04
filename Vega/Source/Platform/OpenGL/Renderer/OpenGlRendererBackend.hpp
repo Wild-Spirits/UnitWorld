@@ -14,6 +14,8 @@ namespace Vega
         virtual bool Init() override;
         virtual void Shutdown() override;
 
+        virtual void WaitIdle() override { }
+
         virtual bool OnWindowCreate(Ref<Window> _Window) override;
         virtual void OnWindowDestroy(Ref<Window> _Window) override;
 

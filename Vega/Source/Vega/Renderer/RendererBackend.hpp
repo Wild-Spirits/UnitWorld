@@ -51,6 +51,9 @@ namespace Vega
         virtual bool Init() = 0;
         virtual void Shutdown() = 0;
 
+        // Blocks until the GPU has finished all submitted work
+        virtual void WaitIdle() = 0;
+
         virtual bool OnWindowCreate(Ref<Window> _Window) = 0;
         virtual void OnWindowDestroy(Ref<Window> _Window) = 0;
         virtual bool OnResize() = 0;

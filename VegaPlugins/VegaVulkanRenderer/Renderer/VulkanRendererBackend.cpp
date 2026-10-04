@@ -160,6 +160,8 @@ namespace Vega
         return true;
     }
 
+    void VulkanRendererBackend::WaitIdle() { VK_CHECK(vkDeviceWaitIdle(m_VkDeviceWrapper.GetLogicalDevice())); }
+
     void VulkanRendererBackend::Shutdown()
     {
         VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();

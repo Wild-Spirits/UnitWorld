@@ -21,6 +21,8 @@ namespace Vega
         virtual bool Init() override;
         virtual void Shutdown() override;
 
+        virtual void WaitIdle() override;
+
         // TODO: Add per window resources to be able to create multiple windows (not imgui)
         virtual bool OnWindowCreate(Ref<Window> _Window) override;
         virtual void OnWindowDestroy(Ref<Window> _Window) override;

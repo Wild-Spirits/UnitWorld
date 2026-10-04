@@ -49,6 +49,9 @@ namespace Vega
 
     Application::~Application()
     {
+        // Last submitted frame may still be in flight; resources freed in OnDetach must not be in use
+        m_RendererBackend->WaitIdle();
+
         m_LayerStack.Clear();
 
         for (auto& [name, manager] : m_Managers)

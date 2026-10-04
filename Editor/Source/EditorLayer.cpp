@@ -127,6 +127,8 @@ namespace Vega
         m_AppLogoSampler->OnDetach();
         m_AppLogo->OnDetach();
 
+        m_FrameBufferImGuiTexture->OnDetach();
+        m_FrameBufferSampler->OnDetach();
         m_FrameBuffer->Destroy();
     }
 

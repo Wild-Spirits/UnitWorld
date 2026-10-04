@@ -7,7 +7,8 @@
 
 `RendererBackend` (`RendererBackend.hpp`) отвечает за:
 
-- жизненный цикл: `Init`, `Shutdown`, `OnWindowCreate`, `OnWindowDestroy`, `OnResize`;
+- жизненный цикл: `Init`, `Shutdown`, `WaitIdle` (ждать завершения всей отправленной на GPU работы),
+  `OnWindowCreate`, `OnWindowDestroy`, `OnResize`;
 - кадр: `FramePrepareWindowSurface` → `FrameCommandListBegin` → … → `FrameCommandListEnd` → `FrameSubmit` →
   `FramePresent`; внутри — `BeginRendering(offset, size, framebuffer)` / `DrawIndexed` / `EndRendering`;
 - фабрики ресурсов: `CreateShader`, `CreateTexture` (в т.ч. из файла через stb_image), `CreateSampler`,

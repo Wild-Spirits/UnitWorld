@@ -33,9 +33,10 @@ Include-пути: корнем служит `Vega/Source`, поэтому вкл
    `EventManager` → `Window::Create` → `RendererBackend::Create(api)` (для Vulkan — загрузка DLL) →
    `Init()` → `OnWindowCreate(window)` → подписка на `WindowResizeEvent`/`WindowCloseEvent`.
 4. `Run()` — главный цикл (см. ниже).
-5. Деструктор: `LayerStack::Clear()` (вызывает `OnDetach` слоёв) → `OnDetach` всех менеджеров →
-   `OnWindowDestroy` → `Shutdown` бэкенда → `NFD::Quit()`. Порядок важен: GPU-ресурсы слоёв и менеджеров
-   должны освободиться до уничтожения устройства.
+5. Деструктор: `WaitIdle` бэкенда (дождаться последнего отправленного кадра) → `LayerStack::Clear()` (вызывает
+   `OnDetach` слоёв) → `OnDetach` всех менеджеров → `OnWindowDestroy` → `Shutdown` бэкенда → `NFD::Quit()`.
+   Порядок важен: GPU-ресурсы слоёв и менеджеров освобождаются, когда GPU уже их не использует, и до уничтожения
+   устройства.
 
 ## Кадр (`Application::Run`)
 
