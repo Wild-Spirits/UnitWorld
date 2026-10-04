@@ -70,6 +70,23 @@ namespace Vega
         }
     }
 
+    void* VulkanRenderBuffer::MapMemory(size_t _Offset, size_t _Size)
+    {
+        VEGA_CORE_ASSERT(IsVulkanRenderBufferHostVisible(), "MapMemory requires host visible RenderBuffer memory!");
+
+        VkDevice logicalDevice = VulkanRendererBackend::GetVkRendererBackend()->GetVkDeviceWrapper().GetLogicalDevice();
+
+        void* mappedData = nullptr;
+        VK_CHECK(vkMapMemory(logicalDevice, m_BufferMemory, _Offset, _Size, 0, &mappedData));
+        return mappedData;
+    }
+
+    void VulkanRenderBuffer::UnmapMemory()
+    {
+        VkDevice logicalDevice = VulkanRendererBackend::GetVkRendererBackend()->GetVkDeviceWrapper().GetLogicalDevice();
+        vkUnmapMemory(logicalDevice, m_BufferMemory);
+    }
+
     void VulkanRenderBuffer::DestroyInternal()
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();

@@ -9,9 +9,28 @@
 #include "Vega/Renderer/FrameBuffer.hpp"
 #include "Vega/Renderer/Sampler.hpp"
 #include "Vega/Scene/Scene.hpp"
+#include "Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp"
+
+#include <glm/glm.hpp>
 
 namespace Vega
 {
+
+    // TODO: Tmp until CameraComponent / editor camera
+    struct EditorTestCamera
+    {
+        glm::vec3 Position { 0.0f, 0.0f, 3.0f };
+        // Euler angles in degrees (pitch, yaw, roll), camera looks along -Z with zero rotation
+        glm::vec3 RotationDeg { 0.0f, 0.0f, 0.0f };
+        float FovYDeg = 45.0f;
+        float Near = 0.1f;
+        float Far = 100.0f;
+
+        glm::mat4 View { 1.0f };
+        glm::mat4 Projection { 1.0f };
+        // When set, View and Projection are edited directly and not recalculated from the params above
+        bool IsManualMatrices = false;
+    };
 
     class EditorLayer : public Layer
     {
@@ -37,6 +56,9 @@ namespace Vega
         float DrawGuiTitlebar();
         void DrawGuiTitlebarWindowButtons(float _FrameHeight, float _CursorPosY);
 
+        void UpdateTestCameraMatrices();
+        void DrawGuiTestCamera();
+
     protected:
         // std::vector<Ref<Texture>> m_ColorBuffers;
         Ref<FrameBuffer> m_FrameBuffer;
@@ -52,6 +74,8 @@ namespace Vega
         WindowTitleBarLayout m_TitleBarLayout;
 
         Ref<Scene> m_ActiveScene;
+        Ref<SceneSystems::SceneSystemStaticMeshDraw> m_StaticMeshDrawSystem;
+        EditorTestCamera m_TestCamera;
         SceneHierarchyPanel m_SceneHierarchyPanel;
         EntityPropsPanel m_EntityPropsPanel;
     };

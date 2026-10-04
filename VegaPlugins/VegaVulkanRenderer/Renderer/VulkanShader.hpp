@@ -71,22 +71,30 @@ namespace Vega
 
     struct VulkanShaderFrequencyInfo
     {
-        // TODO: We can make an array of uniform buffers
         size_t UboSize = 0;
         size_t UboStride = 0;
+        // Offset of the frequency block inside one frame slot of the shader uniform buffer
         size_t UboOffset = 0;
 
         std::vector<size_t> UboIndices;
         std::vector<size_t> TextureIndices;
         std::vector<size_t> SamplerIndices;
+
+        // Indexed same as frequency uniforms in ShaderConfig
+        std::vector<uint32_t> UniformBindings;
+        // Offset of uniform inside UBO block, only for non texture/sampler uniforms
+        std::vector<size_t> UniformOffsets;
     };
 
     struct VulkanShaderFrequencyState
     {
-        Ref<class VulkanRenderBuffer> UniformBuffer;
+        // CPU copy of UBO block, uploaded to the current frame slot on ApplyFrequency
+        std::vector<uint8_t> UboData;
+        // Keyed by binding index
         std::unordered_map<size_t, Ref<VulkanTexture>> UniformTextures;
         std::unordered_map<size_t, Ref<VulkanSampler>> UniformSamplers;
 
+        // One per frame in flight
         std::vector<VkDescriptorSet> DescriptorSets;
     };
 
@@ -127,6 +135,9 @@ namespace Vega
                                                                        VulkanShaderFrequencyInfo& _OutFrequencyInfo);
 
         void SetupFrequencyState(bool _IsNeedDoUniformBuffers, ShaderUpdateFrequency _Frequency);
+
+        void CreateUniformBuffer();
+        void DestroyUniformBuffer();
 
         bool CreateModulesAndPipelines();
 
@@ -183,6 +194,11 @@ namespace Vega
         VkPrimitiveTopology m_CurentTopology;
 
         size_t m_RequiredUboAlignment;
+
+        // Per-frame and per-group UBO blocks, one slot per frame in flight: [frame 0: perFrame|perGroup][frame 1: ...]
+        Ref<VulkanRenderBuffer> m_UniformBuffer = nullptr;
+        uint8_t* m_MappedUniformBuffer = nullptr;
+        size_t m_UniformBufferFrameStride = 0;
 
         VulkanShaderFrequencyInfo m_PerFrameInfo;
         VulkanShaderFrequencyState m_PerFrameState;

@@ -51,6 +51,10 @@
 - **Номер `set` зависит от набора частот.** Descriptor set-ы нумеруются по присутствующим частотам (per-frame →
   per-group → per-draw), поэтому добавление per-frame uniform-ов сдвигает `set` у per-group в GLSL.
 - **Per-draw = push constants**, гарантировано только 128 байт.
+- **UBO заливается в `ApplyFrequency`.** `SetUniformBufferData` для per-frame/per-group пишет в CPU-копию; значение,
+  выставленное после `ApplyFrequency`, попадёт на GPU только при следующем `ApplyFrequency`.
+- **Ресурсы шейдера на кадр индексируются `GetCurrentFrameIndex()`** (frame-in-flight, защищён fence), а не
+  `GetCurrentImageIndex()` (индекс картинки swapchain).
 - **`.spv` перезаписываются при каждом запуске** — изменения в них в `git status` после запуска нормальны, это не правки
   пользователя.
 - **Перевёрнутый viewport** в Vulkan инвертирует winding: поэтому у тестового шейдера `CullMode = kNone`.

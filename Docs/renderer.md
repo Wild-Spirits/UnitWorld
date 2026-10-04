@@ -72,6 +72,8 @@ rendererBackend->CreateShader(
     ShaderConfig {
         .Name = "SceneSystemStaticMeshDraw",
         .Attributes = { ShaderAttributeType::kFloat3, ShaderAttributeType::kFloat2 },   // = layout(location=N) in
+        .UniformsPerFrame = { { .Name = "view", .Size = sizeof(glm::mat4), .Type = ShaderUniformType::kMatrix4 },
+                              { .Name = "proj", .Size = sizeof(glm::mat4), .Type = ShaderUniformType::kMatrix4 } },
         .UniformsPerGroup = { { .Name = "albedoTexture", .Type = ShaderUniformType::kTexture2d },
                               { .Name = "albedoSampler", .Type = ShaderUniformType::kSampler2d } },
         .CullMode = FaceCullMode::kNone,
@@ -91,10 +93,29 @@ rendererBackend->CreateShader(
 | `kPerDraw` | push constants (гарантировано ≤ 128 байт) | данные конкретного вызова отрисовки |
 
 Номера descriptor set назначаются по порядку **присутствующих** частот: если per-frame uniform-ов нет, per-group
-окажется в `set = 0` (как в `test.vert`). Типичная последовательность на вызов отрисовки:
+окажется в `set = 0`. В `test.vert` per-frame UBO `{ view, proj }` — `set = 0`, per-group текстура/сэмплер — `set = 1`.
+
+Внутри set частоты все не-текстурные uniform-ы упакованы в **один** UBO на `binding = 0`, в порядке объявления в
+`ShaderConfig`, со смещениями по `Size * max(1, ArrayLength)`. Раскладка должна совпадать с `std140` в GLSL
+(выравнивание `vec3`/массивов — на совести автора конфига). Текстуры и сэмплеры идут следом с `binding = 1, 2, …`
+в порядке объявления.
+
+UBO per-frame и per-group лежат в одном host-coherent буфере шейдера, постоянно замапленном через
+`VulkanRenderBuffer::MapMemory`. Буфер разбит на слоты по frames-in-flight (`[кадр 0: perFrame|perGroup][кадр 1: …]`),
+descriptor set-ы тоже выделены по одному на frame-in-flight. `SetUniformBufferData` пишет в CPU-копию блока, а
+`ApplyFrequency` копирует её в слот текущего кадра и биндит set, поэтому **`Set*` должны идти до `ApplyFrequency`**.
+Группа пока одна на шейдер (`MaxGroups` влияет только на размер пула): разные данные per-group в пределах одного кадра
+перезапишут друг друга.
+
+Типичная последовательность на вызов отрисовки:
 
 ```cpp
 shader->Bind();
+// Once per frame
+shader->SetUniformBufferData("view", view, ShaderUpdateFrequency::kPerFrame);
+shader->SetUniformBufferData("proj", projection, ShaderUpdateFrequency::kPerFrame);
+shader->ApplyFrequency(ShaderUpdateFrequency::kPerFrame);
+// Per draw
 shader->SetUniformTexture("albedoTexture", texture, ShaderUpdateFrequency::kPerGroup);
 shader->SetUniformSampler("albedoSampler", sampler, ShaderUpdateFrequency::kPerGroup);
 shader->ApplyFrequency(ShaderUpdateFrequency::kPerGroup);
