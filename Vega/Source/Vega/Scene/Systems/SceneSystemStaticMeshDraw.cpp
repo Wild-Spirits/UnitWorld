@@ -63,15 +63,15 @@ namespace Vega::SceneSystems
         Ref<StaticMeshManager> staticMeshManager =
             StaticRefCast<StaticMeshManager>(Application::Get().GetManager("StaticMeshManager"));
 
-        _Scene->GetRegistry().view<Components::StaticMeshComponent, Components::TransformComponent>().each(
+        _Scene->GetRegistry().view<Components::StaticMeshComponent, Components::WorldTransformComponent>().each(
             [&](auto entity, const Components::StaticMeshComponent& meshComp,
-                const Components::TransformComponent& transformComp) {
+                const Components::WorldTransformComponent& worldTransformComp) {
                 // TODO: Continue implementation
                 // Need to get StaticMeshManager from Application
                 m_Shader->SetUniformTexture("albedoTexture", m_TestTexture, ShaderUpdateFrequency::kPerGroup);
                 m_Shader->SetUniformSampler("albedoSampler", m_TestTextureSampler, ShaderUpdateFrequency::kPerGroup);
                 m_Shader->ApplyFrequency(ShaderUpdateFrequency::kPerGroup);
-                m_Shader->SetUniformBufferData("perDrawUbo.model", transformComp.GetTransformMatrix(),
+                m_Shader->SetUniformBufferData("perDrawUbo.model", worldTransformComp.Matrix,
                                                ShaderUpdateFrequency::kPerDraw);
                 StaticMeshManagerMeshInfo meshInfo = staticMeshManager->BindMesh(meshComp.MeshName);
                 rendererBackend->DrawIndexed(static_cast<uint32_t>(meshInfo.IndexCount));

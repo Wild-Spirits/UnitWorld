@@ -721,6 +721,7 @@ namespace Vega
                 .Flags = m_ShaderConfig.Flags & ~ShaderFlagBits::kWireframe,
                 .PushConstantRanges = { Range { .Offset = 0, .Size = localUboStride } },
                 .TopologyTypes = m_ShaderConfig.TopologyTypes,
+                .Winding = RendererWinding::kRendererWindingCounterClockwise,
                 .ColorAttachmentFormats =
                     isColorFlagSet ? std::vector<VkFormat> { colorFormat } : std::vector<VkFormat> {},
                 .DepthAttachmentFormat = isDepthOrStencilFlagSet ? depthFormat : VK_FORMAT_UNDEFINED,

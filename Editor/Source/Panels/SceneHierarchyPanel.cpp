@@ -14,10 +14,6 @@ namespace Vega
     {
         m_SceneContext = _Scene;
 
-        if (ImGui::Button("TMP Remove Dirty Transoform component"))
-        {
-            m_SceneContext->ClearTransformDirtyFlags();
-        }
         DrawHierarchy(_Scene->m_Registry);
     }
 

@@ -49,6 +49,16 @@ namespace Vega
         }
     }
 
+    void OnTransformConstruct(entt::registry& _Registry, entt::entity _Entity)
+    {
+        _Registry.emplace<Components::WorldTransformComponent>(_Entity);
+    }
+
+    void OnTransformDestroy(entt::registry& _Registry, entt::entity _Entity)
+    {
+        _Registry.remove<Components::WorldTransformComponent>(_Entity);
+    }
+
     const Components::TransformComponent& Entity::GetTransform()
     {
         VEGA_CORE_ASSERT(HasComponent<Components::TransformComponent>(), "Entity does not have Transform component!");
@@ -91,7 +101,9 @@ namespace Vega
 
     Scene::Scene()
     {
+        m_Registry.on_construct<Components::TransformComponent>().connect<OnTransformConstruct>();
         m_Registry.on_construct<Components::TransformComponent>().connect<OnTransformConstructOrUpdate>();
+        m_Registry.on_destroy<Components::TransformComponent>().connect<OnTransformDestroy>();
     }
 
     Scene::~Scene()
@@ -109,6 +121,55 @@ namespace Vega
         {
             sceneSystem->OnUpdate(this, _Timestep);
         }
+
+        // After systems: changes made in their OnUpdate and in the GUI of the previous frame are visible in OnRender
+        UpdateWorldTransforms();
+    }
+
+    void Scene::UpdateWorldTransforms()
+    {
+        auto getParentWorldMatrix = [this](entt::entity _Entity) -> glm::mat4 {
+            entt::entity parent = m_Registry.get<Components::HierarchyComponent>(_Entity).Parent;
+            if (parent != entt::null && m_Registry.all_of<Components::WorldTransformComponent>(parent))
+            {
+                return m_Registry.get<Components::WorldTransformComponent>(parent).Matrix;
+            }
+            return glm::mat4(1.0f);
+        };
+
+        std::stack<entt::entity> entitiesToProcess;
+        for (entt::entity entity : m_Registry.view<Components::TransformDirtyComponent>())
+        {
+            // The dirty flag is propagated to descendants, so a dirty parent updates this entity with its subtree
+            entt::entity parent = m_Registry.get<Components::HierarchyComponent>(entity).Parent;
+            if (parent != entt::null && m_Registry.all_of<Components::TransformDirtyComponent>(parent))
+            {
+                continue;
+            }
+
+            entitiesToProcess.push(entity);
+            while (!entitiesToProcess.empty())
+            {
+                entt::entity currentEntity = entitiesToProcess.top();
+                entitiesToProcess.pop();
+
+                m_Registry.get<Components::WorldTransformComponent>(currentEntity).Matrix =
+                    getParentWorldMatrix(currentEntity) *
+                    m_Registry.get<Components::TransformComponent>(currentEntity).GetTransformMatrix();
+
+                entt::entity childEntity = m_Registry.get<Components::HierarchyComponent>(currentEntity).FirstChild;
+                while (childEntity != entt::null)
+                {
+                    if (m_Registry.all_of<Components::TransformComponent>(childEntity))
+                    {
+                        entitiesToProcess.push(childEntity);
+                    }
+                    childEntity = m_Registry.get<Components::HierarchyComponent>(childEntity).NextSibling;
+                }
+            }
+        }
+
+        m_Registry.clear<Components::TransformDirtyComponent>();
     }
 
     void Scene::OnRender()

@@ -12,6 +12,12 @@ namespace Vega::Components
     {
     };
 
+    // Added and removed together with TransformComponent, recalculated by Scene for dirty entities
+    struct WorldTransformComponent
+    {
+        glm::mat4 Matrix { 1.0f };
+    };
+
     struct TransformComponent
     {
         glm::vec3 Position { 0.0f, 0.0f, 0.0f };

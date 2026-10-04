@@ -133,8 +133,12 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
   `ChildCount`); новый ребёнок вставляется в начало списка.
 - **`GetComponent<TransformComponent>()` запрещён (`= delete`).** Трансформ читается через `GetTransform()`,
   а меняется только через `SetTransform*`, чтобы помечать сущность и её потомков `TransformDirtyComponent`.
-- `TransformComponent::GetTransformMatrix()` возвращает локальную матрицу; мировые трансформы по иерархии пока
-  не вычисляются.
+- `TransformComponent::GetTransformMatrix()` возвращает локальную матрицу. Мировая матрица хранится в
+  `WorldTransformComponent::Matrix`: он добавляется и удаляется вместе с `TransformComponent` (сигналы EnTT в
+  конструкторе `Scene`) и пересчитывается в конце `Scene::OnUpdate` — после `OnUpdate` систем — для сущностей с
+  `TransformDirtyComponent`, сверху вниз по иерархии; затем все dirty-флаги снимаются. Родитель без
+  `TransformComponent` считается единичной матрицей, и через него пометка dirty не распространяется. Рендер читает
+  только `WorldTransformComponent`.
 - Системы реализуют `Destroy`, `OnUpdate(Scene*, Timestep)`, `OnRender(Scene*)`. `Scene::OnUpdate` и
   `Scene::OnRender` вызывают соответствующий метод у всех систем в порядке добавления. `Destroy` вызывается
   из деструктора сцены.

@@ -79,13 +79,12 @@ namespace Vega
 
         void AddSceneSystem(Ref<SceneSystems::SceneSystem> _SceneSystem) { m_SceneSystems.push_back(_SceneSystem); }
 
-        // TMP:
-        void ClearTransformDirtyFlags() { m_Registry.clear<Components::TransformDirtyComponent>(); }
-
     protected:
         friend class Entity;
         friend class SceneHierarchyPanel;
         friend class EntityPropsPanel;
+
+        void UpdateWorldTransforms();
 
     protected:
         entt::registry m_Registry;

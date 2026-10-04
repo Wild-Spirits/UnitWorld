@@ -27,7 +27,10 @@
 - **Трансформ только через сеттеры.** `Entity::GetComponent<TransformComponent>()` удалён (`= delete`), а
   `registry.get<TransformComponent>` в обход `Entity` сломает пометку `TransformDirtyComponent`. Используй
   `GetTransform()` + `SetTransform*`.
-- **Нет мировых трансформов.** `GetTransformMatrix()` — локальная матрица без учёта родителей.
+- **Мировой трансформ обновляется раз в кадр.** `GetTransformMatrix()` — локальная матрица; мировая лежит в
+  `WorldTransformComponent` и пересчитывается только в конце `Scene::OnUpdate`. Изменения, сделанные в `OnRender`
+  или GUI, попадут в мировую матрицу в следующем кадре. Не снимай `TransformDirtyComponent` вручную — эти сущности не
+  пересчитаются.
 - **`DestroyEntity` удаляет всё поддерево.** Сохранённые `entt::entity`/`Entity` после этого невалидны, перед
   использованием проверяй `GetRegistry().valid(...)`.
 - **Менеджеры по строковому имени.** Опечатка в имени `GetManager("…")` — ассерт в Debug и исключение
