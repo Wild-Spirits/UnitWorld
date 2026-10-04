@@ -41,7 +41,8 @@ Include-пути: корнем служит `Vega/Source`, поэтому вкл
 ## Кадр (`Application::Run`)
 
 ```
-for layer: OnUpdate()
+timestep = Time::GetTime() - lastFrameTime
+for layer: OnUpdate(timestep)
 if not minimized:
     if resizing: backend.OnResize(); backend.FramePrepareWindowSurface()     # кадр пропускается
     elif backend.FramePrepareWindowSurface():
@@ -64,7 +65,10 @@ Vulkan-бэкенд пересоздаёт swapchain вместе с depth-бу�
 (`FramePrepareWindowSurface` при `m_IsNeedRecreateSwapchain`); `VK_ERROR_OUT_OF_DATE_KHR`/`VK_SUBOPTIMAL_KHR` лишь
 выставляют этот флаг. Размер depth-буферов берётся из extent swapchain, а не из размера окна.
 
-Таймстеп пока не считается (`time = 0.0f`), `Layer::OnUpdate()` вызывается без аргументов.
+`Time::GetTime()` (`Vega/Core/Time.hpp`) — монотонное время в секундах на `std::chrono::steady_clock` с
+неопределённым началом отсчёта, имеет смысл только разность. `Timestep` — длительность кадра в секундах (`float`),
+неявно приводится к `float`; передаётся в `Layer::OnUpdate(Timestep)`, а слой сам передаёт его в `Scene::OnUpdate`.
+Длительность кадра не ограничивается: после паузы в отладчике первый шаг будет большим.
 
 В Editor сцена рисуется в собственный `FrameBuffer` (`EditorLayer::OnRender`: `BindAndClearColorDepthStencil` →
 `BeginRendering` → `Scene::OnRender` → `EndRendering`), а затем выводится в окно-вьюпорт ImGui через
@@ -89,7 +93,7 @@ Editor рисует меню без собственных кнопок окна
 
 ## Слои
 
-`Layer` — виртуальные `OnAttach(Ref<EventManager>)`, `OnDetach`, `OnUpdate`, `OnRender`, `OnGuiRender`.
+`Layer` — виртуальные `OnAttach(Ref<EventManager>)`, `OnDetach`, `OnUpdate(Timestep)`, `OnRender`, `OnGuiRender`.
 `PushLayer` вставляет слой перед оверлеями, `PushOverlay` — в конец. `OnAttach` вызывается сразу при добавлении,
 поэтому в нём уже доступны `Application::Get().GetRendererBackend()` и окно.
 
@@ -132,7 +136,7 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
 - `TransformComponent::GetTransformMatrix()` возвращает локальную матрицу; мировые трансформы по иерархии пока
   не вычисляются.
 - Системы реализуют `Destroy`, `OnUpdate(Scene*)`, `OnRender(Scene*)`. `Scene::OnRender` вызывает `OnRender`
-  у всех систем; `Scene::OnUpdate()` пока пустой. `Destroy` вызывается из деструктора сцены.
+  у всех систем; `Scene::OnUpdate(Timestep)` пока пустой. `Destroy` вызывается из деструктора сцены.
 - `DestroyEntity` не реализован.
 
 ## Плагины

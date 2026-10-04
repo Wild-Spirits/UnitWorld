@@ -3,6 +3,7 @@
 #include "Components/TransformComponent.hpp"
 #include "Systems/SceneSystem.hpp"
 #include "Vega/Core/Assert.hpp"
+#include "Vega/Core/Timestep.hpp"
 #include <entt/entt.hpp>
 
 #include <string_view>
@@ -65,8 +66,6 @@ namespace Vega
         Scene();
         virtual ~Scene();
 
-        void OnUpdate(float _DeltaTime);
-
         Entity CreateEntity(std::string_view _Name, Entity _Parent = Entity());
         // TODO: CreateActor - like CreateEntity but with predefined components (e.g. Transform, etc.)
         Entity CreateActor(std::string_view _Name, Entity _Parent = Entity());
@@ -74,7 +73,7 @@ namespace Vega
 
         entt::registry& GetRegistry() { return m_Registry; }
 
-        void OnUpdate();
+        void OnUpdate(Timestep _Timestep);
 
         void OnRender();
 

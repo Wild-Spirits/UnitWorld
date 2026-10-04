@@ -132,7 +132,7 @@ namespace Vega
         m_FrameBuffer->Destroy();
     }
 
-    void EditorLayer::OnUpdate()
+    void EditorLayer::OnUpdate(Timestep _Timestep)
     {
         // if (m_FrameBuffer->GetWidth() != m_ViewportDimensions.x || m_FrameBuffer->GetHeight() !=
         // m_ViewportDimensions.y)
@@ -142,7 +142,7 @@ namespace Vega
         //     m_FramesToSkip = Application::Get().GetRendererBackend()->GetSwapchainColorTextures().size() * 15;
         // }
 
-        m_ActiveScene->OnUpdate();
+        m_ActiveScene->OnUpdate(_Timestep);
     }
 
     void EditorLayer::OnRender()

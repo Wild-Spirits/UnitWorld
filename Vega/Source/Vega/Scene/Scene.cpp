@@ -103,7 +103,7 @@ namespace Vega
         m_SceneSystems.clear();
     }
 
-    void Scene::OnUpdate() { }
+    void Scene::OnUpdate(Timestep _Timestep) { }
 
     void Scene::OnRender()
     {

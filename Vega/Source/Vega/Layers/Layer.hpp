@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vega/Core/Base.hpp"
+#include "Vega/Core/Timestep.hpp"
 #include "Vega/Events/EventManager.hpp"
 
 namespace Vega
@@ -15,7 +16,7 @@ namespace Vega
         virtual void OnAttach(Ref<EventManager> _EventManager) { }
         virtual void OnDetach() { }
 
-        virtual void OnUpdate() { }
+        virtual void OnUpdate(Timestep _Timestep) { }
         virtual void OnRender() { }
         virtual void OnGuiRender() { }
 

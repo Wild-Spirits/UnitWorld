@@ -50,7 +50,7 @@ Glob-ов нет: `.cpp`, отсутствующий в `SOURCES`, молча н
 2. GPU-ресурсы создавать в конструкторе через `Application::Get().GetRendererBackend()`, освобождать в `Destroy()`.
 3. Обход сущностей — через `_Scene->GetRegistry().view<A, B>().each(...)`.
 4. Подключить: `scene->AddSceneSystem(CreateRef<SceneSystems::SceneSystemXxx>())`.
-5. Учтите: `Scene::OnUpdate()` сейчас не вызывает `OnUpdate` систем.
+5. Учтите: `Scene::OnUpdate(Timestep)` сейчас не вызывает `OnUpdate` систем.
 
 ## Добавить менеджер
 

@@ -20,7 +20,7 @@ namespace Vega
 
         void OnDetach() override;
 
-        void OnUpdate() override;
+        void OnUpdate(Timestep _Timestep) override;
 
         void OnRender() override;
 

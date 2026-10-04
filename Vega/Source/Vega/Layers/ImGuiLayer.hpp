@@ -19,7 +19,7 @@ namespace Vega
         virtual void OnAttach(Ref<EventManager> _EventManager) override;
         virtual void OnDetach() override;
 
-        virtual void OnUpdate() override;
+        virtual void OnUpdate(Timestep _Timestep) override;
         virtual void OnGuiRender() override;
 
         virtual bool BeginGuiFrame() override;

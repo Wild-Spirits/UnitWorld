@@ -90,7 +90,7 @@ namespace Vega
         ImGui::DestroyContext();
     }
 
-    void ImGuiLayer::OnUpdate() { }
+    void ImGuiLayer::OnUpdate(Timestep _Timestep) { }
 
     void ImGuiLayer::OnGuiRender() { }
 

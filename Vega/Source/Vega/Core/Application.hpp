@@ -2,6 +2,7 @@
 
 #include "Vega/Core/Assert.hpp"
 #include "Vega/Core/Base.hpp"
+#include "Vega/Core/Timestep.hpp"
 #include "Vega/Core/Window.hpp"
 #include "Vega/Events/EventManager.hpp"
 #include "Vega/Events/WindowEvent.hpp"
@@ -96,7 +97,7 @@ namespace Vega
         bool m_Minimized = false;
         bool m_Resizing = false;
         LayerStack m_LayerStack;
-        float m_LastFrameTime = 0.0f;
+        double m_LastFrameTime = 0.0;
 
     protected:
         static Application* s_Instance;

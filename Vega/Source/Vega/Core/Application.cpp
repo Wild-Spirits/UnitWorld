@@ -1,5 +1,6 @@
 #include "Application.hpp"
 
+#include "Vega/Core/Time.hpp"
 #include "Vega/Utils/Log.hpp"
 
 #include <nfd.hpp>
@@ -101,16 +102,17 @@ namespace Vega
 
     void Application::Run()
     {
+        m_LastFrameTime = Time::GetTime();
+
         while (m_Running)
         {
-            // float time = Time::GetTime();
-            float time = 0.0f;
-            float timestepSec = time - m_LastFrameTime;
+            double time = Time::GetTime();
+            Timestep timestep = static_cast<float>(time - m_LastFrameTime);
             m_LastFrameTime = time;
 
             for (Ref<Layer> layer : m_LayerStack)
             {
-                layer->OnUpdate();
+                layer->OnUpdate(timestep);
             }
 
             if (!m_Minimized)

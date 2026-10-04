@@ -10,7 +10,8 @@ set(SOURCES
     Source/Vega/Core/Application.hpp                                        Source/Vega/Core/Application.cpp
     Source/Vega/Core/Window.hpp                                             Source/Vega/Core/Window.cpp
     Source/Vega/Core/Base.hpp
-    # Source/Vega/Core/Timestep.h
+    Source/Vega/Core/Time.hpp                                               Source/Vega/Core/Time.cpp
+    Source/Vega/Core/Timestep.hpp
     Source/Vega/Core/Inputs.hpp
     Source/Vega/Core/Assert.hpp
     Source/Vega/Core/KeyCodes.hpp
