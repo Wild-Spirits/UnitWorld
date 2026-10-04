@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Vega/Core/Timestep.hpp"
+
 namespace Vega
 {
 
@@ -15,7 +17,7 @@ namespace Vega
 
             virtual void Destroy() = 0;
 
-            virtual void OnUpdate(Scene* _Scene) = 0;
+            virtual void OnUpdate(Scene* _Scene, Timestep _Timestep) = 0;
 
             virtual void OnRender(Scene* _Scene) = 0;
         };

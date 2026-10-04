@@ -53,7 +53,7 @@ namespace Vega::SceneSystems
         m_TestTexture->OnDetach();
     }
 
-    void SceneSystemStaticMeshDraw::OnUpdate(Scene* _Scene) { }
+    void SceneSystemStaticMeshDraw::OnUpdate(Scene* _Scene, Timestep _Timestep) { }
 
     void SceneSystemStaticMeshDraw::OnRender(Scene* _Scene)
     {

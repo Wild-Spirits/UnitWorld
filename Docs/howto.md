@@ -46,11 +46,10 @@ Glob-ов нет: `.cpp`, отсутствующий в `SOURCES`, молча н
 ## Добавить систему сцены
 
 1. `Vega/Source/Vega/Scene/Systems/SceneSystem<Name>.hpp/.cpp`, класс в `namespace Vega::SceneSystems`,
-   наследник `SceneSystem`, реализует `Destroy`, `OnUpdate(Scene*)`, `OnRender(Scene*)`.
+   наследник `SceneSystem`, реализует `Destroy`, `OnUpdate(Scene*, Timestep)`, `OnRender(Scene*)`.
 2. GPU-ресурсы создавать в конструкторе через `Application::Get().GetRendererBackend()`, освобождать в `Destroy()`.
 3. Обход сущностей — через `_Scene->GetRegistry().view<A, B>().each(...)`.
 4. Подключить: `scene->AddSceneSystem(CreateRef<SceneSystems::SceneSystemXxx>())`.
-5. Учтите: `Scene::OnUpdate(Timestep)` сейчас не вызывает `OnUpdate` систем.
 
 ## Добавить менеджер
 

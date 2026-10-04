@@ -15,7 +15,7 @@ namespace Vega::SceneSystems
 
         virtual void Destroy() override;
 
-        virtual void OnUpdate(Scene* _Scene) override;
+        virtual void OnUpdate(Scene* _Scene, Timestep _Timestep) override;
 
         virtual void OnRender(Scene* _Scene) override;
 

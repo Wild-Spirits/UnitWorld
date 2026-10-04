@@ -135,8 +135,9 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
   а меняется только через `SetTransform*`, чтобы помечать сущность и её потомков `TransformDirtyComponent`.
 - `TransformComponent::GetTransformMatrix()` возвращает локальную матрицу; мировые трансформы по иерархии пока
   не вычисляются.
-- Системы реализуют `Destroy`, `OnUpdate(Scene*)`, `OnRender(Scene*)`. `Scene::OnRender` вызывает `OnRender`
-  у всех систем; `Scene::OnUpdate(Timestep)` пока пустой. `Destroy` вызывается из деструктора сцены.
+- Системы реализуют `Destroy`, `OnUpdate(Scene*, Timestep)`, `OnRender(Scene*)`. `Scene::OnUpdate` и
+  `Scene::OnRender` вызывают соответствующий метод у всех систем в порядке добавления. `Destroy` вызывается
+  из деструктора сцены.
 - `DestroyEntity` не реализован.
 
 ## Плагины

@@ -103,7 +103,13 @@ namespace Vega
         m_SceneSystems.clear();
     }
 
-    void Scene::OnUpdate(Timestep _Timestep) { }
+    void Scene::OnUpdate(Timestep _Timestep)
+    {
+        for (auto& sceneSystem : m_SceneSystems)
+        {
+            sceneSystem->OnUpdate(this, _Timestep);
+        }
+    }
 
     void Scene::OnRender()
     {
