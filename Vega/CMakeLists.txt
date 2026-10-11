@@ -28,6 +28,8 @@ set(SOURCES
     Source/Vega/Renderer/RenderBuffer.hpp                                   Source/Vega/Renderer/RenderBuffer.cpp
     Source/Vega/Renderer/RenderBufferAllocator.hpp                          Source/Vega/Renderer/RenderBufferAllocator.cpp
     Source/Vega/Renderer/Shader.hpp                                         Source/Vega/Renderer/Shader.cpp
+    Source/Vega/Renderer/Camera.hpp                                         Source/Vega/Renderer/Camera.cpp
+    Source/Vega/Renderer/RenderView.hpp                                     Source/Vega/Renderer/RenderView.cpp
     
     Source/Vega/Renderer/RenderGraph/RenderGraph.hpp                        Source/Vega/Renderer/RenderGraph/RenderGraph.cpp
     Source/Vega/Renderer/RenderGraph/RenderGraphNode.hpp                    Source/Vega/Renderer/RenderGraph/RenderGraphNode.cpp
@@ -39,6 +41,7 @@ set(SOURCES
     Source/Vega/Scene/Components/TransformComponent.hpp
     Source/Vega/Scene/Components/HierarchyComponent.hpp
     Source/Vega/Scene/Components/StaticMeshComponent.hpp
+    Source/Vega/Scene/Components/CameraComponent.hpp
     
     Source/Vega/Scene/Systems/SceneSystem.hpp
     Source/Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp                 Source/Vega/Scene/Systems/SceneSystemStaticMeshDraw.cpp

@@ -6,6 +6,9 @@
 #include "Vega/Core/Timestep.hpp"
 #include <entt/entt.hpp>
 
+#include "Vega/Renderer/RenderView.hpp"
+
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -47,6 +50,9 @@ namespace Vega
         template <typename T>
         bool HasComponent();
 
+        bool IsValid() const;
+        Scene* GetScene() const { return m_Scene; }
+
         template <typename T>
         void RemoveComponent();
 
@@ -75,7 +81,14 @@ namespace Vega
 
         void OnUpdate(Timestep _Timestep);
 
-        void OnRender();
+        // NOTE: The scene does not choose a camera, the owner (editor/runtime layer) passes the view
+        void OnRender(const RenderView& _View);
+
+        // Returns an invalid Entity when there is no primary camera with a transform
+        Entity GetPrimaryCameraEntity();
+        // Makes _Entity the only primary camera
+        void SetPrimaryCamera(Entity _Entity);
+        std::optional<RenderView> GetPrimaryCameraView(const glm::uvec2& _ViewportSize);
 
         void AddSceneSystem(Ref<SceneSystems::SceneSystem> _SceneSystem) { m_SceneSystems.push_back(_SceneSystem); }
 

@@ -1,5 +1,6 @@
 #include "Scene.hpp"
 
+#include "Components/CameraComponent.hpp"
 #include "Components/HierarchyComponent.hpp"
 #include "Components/NameComponent.hpp"
 #include "Components/TransformComponent.hpp"
@@ -57,6 +58,11 @@ namespace Vega
     void OnTransformDestroy(entt::registry& _Registry, entt::entity _Entity)
     {
         _Registry.remove<Components::WorldTransformComponent>(_Entity);
+    }
+
+    bool Entity::IsValid() const
+    {
+        return m_Scene && m_Handle != entt::null && m_Scene->m_Registry.valid(m_Handle);
     }
 
     const Components::TransformComponent& Entity::GetTransform()
@@ -172,12 +178,49 @@ namespace Vega
         m_Registry.clear<Components::TransformDirtyComponent>();
     }
 
-    void Scene::OnRender()
+    void Scene::OnRender(const RenderView& _View)
     {
         for (auto& sceneSystem : m_SceneSystems)
         {
-            sceneSystem->OnRender(this);
+            sceneSystem->OnRender(this, _View);
         }
+    }
+
+    Entity Scene::GetPrimaryCameraEntity()
+    {
+        auto view = m_Registry.view<Components::CameraComponent, Components::WorldTransformComponent>();
+        for (entt::entity entity : view)
+        {
+            if (view.get<Components::CameraComponent>(entity).IsPrimary)
+            {
+                return Entity { entity, this };
+            }
+        }
+
+        return Entity {};
+    }
+
+    void Scene::SetPrimaryCamera(Entity _Entity)
+    {
+        VEGA_CORE_ASSERT(_Entity.HasComponent<Components::CameraComponent>(), "Entity does not have Camera component!");
+
+        for (auto&& [entity, cameraComp] : m_Registry.view<Components::CameraComponent>().each())
+        {
+            cameraComp.IsPrimary = entity == _Entity.m_Handle;
+        }
+    }
+
+    std::optional<RenderView> Scene::GetPrimaryCameraView(const glm::uvec2& _ViewportSize)
+    {
+        Entity cameraEntity = GetPrimaryCameraEntity();
+        if (!cameraEntity.IsValid())
+        {
+            return std::nullopt;
+        }
+
+        return MakeRenderView(cameraEntity.GetConstComponent<Components::CameraComponent>().Projection,
+                              cameraEntity.GetConstComponent<Components::WorldTransformComponent>().Matrix,
+                              _ViewportSize);
     }
 
     Entity Scene::CreateEntity(std::string_view _Name, Entity _Parent)

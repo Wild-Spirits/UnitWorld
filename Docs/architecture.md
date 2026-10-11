@@ -71,8 +71,23 @@ Vulkan-бэкенд пересоздаёт swapchain вместе с depth-бу�
 Длительность кадра не ограничивается: после паузы в отладчике первый шаг будет большим.
 
 В Editor сцена рисуется в собственный `FrameBuffer` (`EditorLayer::OnRender`: `BindAndClearColorDepthStencil` →
-`BeginRendering` → `Scene::OnRender` → `EndRendering`), а затем выводится в окно-вьюпорт ImGui через
-`ImGuiFrameBufferWrapper`.
+`BeginRendering` → `Scene::OnRender(view)` → `EndRendering`), а затем выводится в окно-вьюпорт ImGui через
+`ImGuiFrameBufferWrapper`. Размер `FrameBuffer` следует за окном Viewport: новый размер запоминается в
+`OnGuiRender`, а ресайз (с пересозданием `ImGuiFrameBufferWrapper`) выполняется в начале следующего `OnUpdate`.
+
+### Камеры и режимы редактора
+
+Сцена камеру не выбирает: `Scene::OnRender(const RenderView&)` получает вид от владельца сцены.
+
+- `EditorLayer` хранит `SceneState` (`kEdit`/`kPlay`, кнопка Play/Stop в заголовке). В `kEdit` рисует
+  `EditorCamera`, в `kPlay` — `Scene::GetPrimaryCameraView` (если основной камеры нет — остаётся камера редактора
+  и во вьюпорте выводится предупреждение). Play пока только переключает камеру: сцена не копируется, логика не
+  запускается.
+- `EditorCamera` (`Editor/Source`) — не сущность, в сцену не попадает. Модель «точка фокуса + дистанция + yaw/pitch»:
+  fly (ПКМ + мышь, WASD/QE, Shift, колесо — скорость) и orbit (Alt + ЛКМ — вращение, СКМ — панорама,
+  колесо / Alt + ПКМ — зум, F — фокус на начало координат). Ввод читается через ImGui IO в `OnGuiRender`, только
+  при наведении на вьюпорт; поверх картинки лежит `InvisibleButton`, чтобы перетаскивание не двигало окно.
+- Будущий runtime-слой (игра без редактора) всегда использует `GetPrimaryCameraView`.
 
 ## Окно и кастомный заголовок
 
@@ -139,9 +154,12 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
   `TransformDirtyComponent`, сверху вниз по иерархии; затем все dirty-флаги снимаются. Родитель без
   `TransformComponent` считается единичной матрицей, и через него пометка dirty не распространяется. Рендер читает
   только `WorldTransformComponent`.
-- Системы реализуют `Destroy`, `OnUpdate(Scene*, Timestep)`, `OnRender(Scene*)`. `Scene::OnUpdate` и
-  `Scene::OnRender` вызывают соответствующий метод у всех систем в порядке добавления. `Destroy` вызывается
-  из деструктора сцены.
+- Системы реализуют `Destroy`, `OnUpdate(Scene*, Timestep)`, `OnRender(Scene*, const RenderView&)`.
+  `Scene::OnUpdate` и `Scene::OnRender` вызывают соответствующий метод у всех систем в порядке добавления.
+  `Destroy` вызывается из деструктора сцены.
+- `CameraComponent { CameraProjection Projection; bool IsPrimary; }` — игровая камера, положение берётся из
+  `WorldTransformComponent` (смотрит вдоль локальной −Z, масштаб игнорируется). `Scene::GetPrimaryCameraEntity`
+  возвращает первую камеру с `IsPrimary`, `Scene::SetPrimaryCamera(entity)` оставляет основной только одну.
 - `DestroyEntity` удаляет сущность вместе со всем поддеревом: корень отвязывается от родителя и соседей
   (`ChildCount` родителя уменьшается), затем потомки уничтожаются раньше предков. Хэндлы удалённых сущностей,
   сохранённые снаружи (например, выделение в редакторе), становятся невалидными — проверяй `registry.valid`.

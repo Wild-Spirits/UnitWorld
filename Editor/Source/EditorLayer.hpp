@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EditorCamera.hpp"
 #include "Panels/EntityPropsPanel.hpp"
 #include "Panels/SceneHierarchyPanel.hpp"
 #include "Vega/Core/Window.hpp"
@@ -9,27 +10,18 @@
 #include "Vega/Renderer/FrameBuffer.hpp"
 #include "Vega/Renderer/Sampler.hpp"
 #include "Vega/Scene/Scene.hpp"
-#include "Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp"
 
 #include <glm/glm.hpp>
 
 namespace Vega
 {
 
-    // TODO: Tmp until CameraComponent / editor camera
-    struct EditorTestCamera
+    enum class SceneState
     {
-        glm::vec3 Position { 0.0f, 0.0f, 3.0f };
-        // Euler angles in degrees (pitch, yaw, roll), camera looks along -Z with zero rotation
-        glm::vec3 RotationDeg { 0.0f, 0.0f, 0.0f };
-        float FovYDeg = 45.0f;
-        float Near = 0.1f;
-        float Far = 100.0f;
-
-        glm::mat4 View { 1.0f };
-        glm::mat4 Projection { 1.0f };
-        // When set, View and Projection are edited directly and not recalculated from the params above
-        bool IsManualMatrices = false;
+        // Editor camera, scene logic is not running
+        kEdit,
+        // Primary scene camera (TODO: copy the scene and run its logic)
+        kPlay,
     };
 
     class EditorLayer : public Layer
@@ -56,8 +48,11 @@ namespace Vega
         float DrawGuiTitlebar();
         void DrawGuiTitlebarWindowButtons(float _FrameHeight, float _CursorPosY);
 
-        void UpdateTestCameraMatrices();
-        void DrawGuiTestCamera();
+        void DrawGuiPlayStopButton(float _FrameHeight, float _CursorPosY);
+        void DrawGuiViewport();
+
+        void ResizeViewportFrameBuffer();
+        RenderView GetActiveRenderView();
 
     protected:
         // std::vector<Ref<Texture>> m_ColorBuffers;
@@ -74,8 +69,10 @@ namespace Vega
         WindowTitleBarLayout m_TitleBarLayout;
 
         Ref<Scene> m_ActiveScene;
-        Ref<SceneSystems::SceneSystemStaticMeshDraw> m_StaticMeshDrawSystem;
-        EditorTestCamera m_TestCamera;
+        SceneState m_SceneState = SceneState::kEdit;
+        EditorCamera m_EditorCamera;
+        // Camera input is read in OnGuiRender, where the viewport hover state is known
+        Timestep m_LastTimestep;
         SceneHierarchyPanel m_SceneHierarchyPanel;
         EntityPropsPanel m_EntityPropsPanel;
     };

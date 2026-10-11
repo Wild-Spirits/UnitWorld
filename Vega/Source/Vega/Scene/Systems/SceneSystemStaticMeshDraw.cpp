@@ -69,12 +69,12 @@ namespace Vega::SceneSystems
 
     void SceneSystemStaticMeshDraw::OnUpdate(Scene* _Scene, Timestep _Timestep) { }
 
-    void SceneSystemStaticMeshDraw::OnRender(Scene* _Scene)
+    void SceneSystemStaticMeshDraw::OnRender(Scene* _Scene, const RenderView& _View)
     {
         m_Shader->Bind();
 
-        m_Shader->SetUniformBufferData("view", m_View, ShaderUpdateFrequency::kPerFrame);
-        m_Shader->SetUniformBufferData("proj", m_Projection, ShaderUpdateFrequency::kPerFrame);
+        m_Shader->SetUniformBufferData("view", _View.View, ShaderUpdateFrequency::kPerFrame);
+        m_Shader->SetUniformBufferData("proj", _View.Projection, ShaderUpdateFrequency::kPerFrame);
         m_Shader->ApplyFrequency(ShaderUpdateFrequency::kPerFrame);
 
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();

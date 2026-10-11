@@ -10,6 +10,7 @@ set(SOURCES
     Source/main.cpp
     
     Source/EditorLayer.cpp                              Source/EditorLayer.hpp
+    Source/EditorCamera.cpp                             Source/EditorCamera.hpp
 
     Source/Panels/SceneHierarchyPanel.cpp               Source/Panels/SceneHierarchyPanel.hpp
     Source/Panels/EntityPropsPanel.cpp                  Source/Panels/EntityPropsPanel.hpp

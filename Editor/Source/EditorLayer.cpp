@@ -9,17 +9,18 @@
 #include "Vega/Managers/TextureManager.hpp"
 #include "Vega/Renderer/RendererBackend.hpp"
 #include "Vega/Renderer/Texture.hpp"
+#include "Vega/Scene/Components/CameraComponent.hpp"
 #include "Vega/Scene/Components/StaticMeshComponent.hpp"
 #include "Vega/Scene/Components/TransformComponent.hpp"
 #include "Vega/Scene/Scene.hpp"
 #include "Vega/Scene/Systems/SceneSystemStaticMeshDraw.hpp"
 
 #include "glm/fwd.hpp"
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtc/quaternion.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 
+#include <algorithm>
+#include <optional>
 #include <vector>
 
 namespace Vega
@@ -50,6 +51,31 @@ namespace Vega
             {
                 _Entity.SetTransformScale(newScale);
             }
+        }
+    }
+
+    // TODO: Move to proper place
+    void DrawCamera(Entity _Entity)
+    {
+        if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            Components::CameraComponent& cameraComp = _Entity.GetComponent<Components::CameraComponent>();
+
+            bool isPrimary = cameraComp.IsPrimary;
+            if (ImGui::Checkbox("Primary", &isPrimary))
+            {
+                if (isPrimary)
+                {
+                    // Only one primary camera in the scene
+                    _Entity.GetScene()->SetPrimaryCamera(_Entity);
+                }
+                else
+                {
+                    cameraComp.IsPrimary = false;
+                }
+            }
+
+            DrawGuiCameraProjection(cameraComp.Projection);
         }
     }
 
@@ -98,8 +124,12 @@ namespace Vega
         staticMeshManager->AddMesh("TestMesh", vertices.data(), vertices.size(), indices.data(), indices.size(), false);
 
         m_ActiveScene = CreateRef<Scene>();
-        m_StaticMeshDrawSystem = CreateRef<SceneSystems::SceneSystemStaticMeshDraw>();
-        m_ActiveScene->AddSceneSystem(m_StaticMeshDrawSystem);
+        m_ActiveScene->AddSceneSystem(CreateRef<SceneSystems::SceneSystemStaticMeshDraw>());
+
+        // Game camera, used in Play mode
+        Entity mainCamera = m_ActiveScene->CreateActor("MainCamera");
+        mainCamera.SetTransformPosition({ 0.0f, 0.0f, 3.0f });
+        mainCamera.AddComponent<Components::CameraComponent>().IsPrimary = true;
 
         m_ActiveScene->CreateEntity("Test1");
         m_ActiveScene->CreateEntity("Test2");
@@ -120,11 +150,15 @@ namespace Vega
                 .Name = "Transform",
                 .DrawFunc = DrawTransform,
             });
+        EntityPropsPanel::RegisterComponentDescription<Components::CameraComponent>(
+            EntityPropsPanelComponentDescription {
+                .Name = "Camera",
+                .DrawFunc = DrawCamera,
+            });
     }
 
     void EditorLayer::OnDetach()
     {
-        m_StaticMeshDrawSystem.reset();
         m_ActiveScene.reset();
 
         m_AppLogoImGuiTexture->OnDetach();
@@ -138,15 +172,48 @@ namespace Vega
 
     void EditorLayer::OnUpdate(Timestep _Timestep)
     {
-        // if (m_FrameBuffer->GetWidth() != m_ViewportDimensions.x || m_FrameBuffer->GetHeight() !=
-        // m_ViewportDimensions.y)
-        // {
-        //     m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
-        //     // TODO: Try to make it better (without frame skipping)
-        //     m_FramesToSkip = Application::Get().GetRendererBackend()->GetSwapchainColorTextures().size() * 15;
-        // }
+        m_LastTimestep = _Timestep;
+
+        ResizeViewportFrameBuffer();
 
         m_ActiveScene->OnUpdate(_Timestep);
+    }
+
+    void EditorLayer::ResizeViewportFrameBuffer()
+    {
+        if (m_ViewportDimensions.x == 0 || m_ViewportDimensions.y == 0 ||
+            (m_FrameBuffer->GetWidth() == m_ViewportDimensions.x &&
+             m_FrameBuffer->GetHeight() == m_ViewportDimensions.y))
+        {
+            return;
+        }
+
+        Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
+
+        // NOTE: Called before the frame is recorded. The ImGui wrapper holds descriptor sets of the old image views,
+        // which are still used by frames in flight (ImGui::Image of the viewport), so wait for the GPU before freeing
+        // them. Then the textures and the wrapper are recreated
+        rendererBackend->WaitIdle();
+        m_FrameBufferImGuiTexture->OnDetach();
+        m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
+        m_FrameBufferImGuiTexture = rendererBackend->CreateImGuiFrameBufferWrapper(m_FrameBuffer, m_FrameBufferSampler);
+    }
+
+    RenderView EditorLayer::GetActiveRenderView()
+    {
+        glm::uvec2 viewportSize = { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() };
+
+        if (m_SceneState == SceneState::kPlay)
+        {
+            std::optional<RenderView> gameView = m_ActiveScene->GetPrimaryCameraView(viewportSize);
+            if (gameView.has_value())
+            {
+                return gameView.value();
+            }
+            // No primary camera: stay on the editor camera, the viewport shows a warning
+        }
+
+        return m_EditorCamera.GetRenderView(viewportSize);
     }
 
     void EditorLayer::OnRender()
@@ -163,10 +230,7 @@ namespace Vega
 
         rendererBackend->SetActiveViewport({ 0.0f, 0.0f }, { m_FrameBuffer->GetWidth(), m_FrameBuffer->GetHeight() });
 
-        UpdateTestCameraMatrices();
-        m_StaticMeshDrawSystem->SetViewProjection(m_TestCamera.View, m_TestCamera.Projection);
-
-        m_ActiveScene->OnRender();
+        m_ActiveScene->OnRender(GetActiveRenderView());
 
         rendererBackend->EndRendering();
 
@@ -219,7 +283,7 @@ namespace Vega
             auto dockIdRight = ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Right, 0.2f, nullptr, &dockspaceId);
 
             ImGui::DockBuilderDockWindow("Props", dockIdLeft);
-            ImGui::DockBuilderDockWindow("Test Camera", dockIdLeft);
+            ImGui::DockBuilderDockWindow("Editor Camera", dockIdLeft);
             ImGui::DockBuilderDockWindow("Scene", dockIdRight);
             ImGui::DockBuilderDockWindow("Viewport", dockspaceId);
             ImGui::DockBuilderDockWindow("Assets", dockIdBottom);
@@ -244,14 +308,7 @@ namespace Vega
 
         if (ImGui::Begin("Viewport", 0))
         {
-            ImVec2 viewportDimensions = ImGui::GetContentRegionAvail();
-
-            ImGui::Image((ImTextureID)m_FrameBufferImGuiTexture->GetImGuiColorAttachmentId(), viewportDimensions);
-
-            m_ViewportDimensions = {
-                static_cast<uint32_t>(viewportDimensions.x),
-                static_cast<uint32_t>(viewportDimensions.y),
-            };
+            DrawGuiViewport();
         }
         ImGui::End();
 
@@ -275,9 +332,9 @@ namespace Vega
         }
         ImGui::End();
 
-        if (ImGui::Begin("Test Camera"))
+        if (ImGui::Begin("Editor Camera"))
         {
-            DrawGuiTestCamera();
+            m_EditorCamera.DrawGuiSettings();
         }
         ImGui::End();
 
@@ -287,74 +344,53 @@ namespace Vega
         }
     }
 
-    void EditorLayer::UpdateTestCameraMatrices()
+    void EditorLayer::DrawGuiViewport()
     {
-        if (m_TestCamera.IsManualMatrices)
+        ImVec2 viewportDimensions = ImGui::GetContentRegionAvail();
+        m_ViewportDimensions = {
+            static_cast<uint32_t>(std::max(viewportDimensions.x, 0.0f)),
+            static_cast<uint32_t>(std::max(viewportDimensions.y, 0.0f)),
+        };
+        if (m_ViewportDimensions.x == 0 || m_ViewportDimensions.y == 0)
         {
             return;
         }
 
-        glm::mat4 cameraTransform = glm::translate(glm::mat4(1.0f), m_TestCamera.Position) *
-                                    glm::mat4_cast(glm::quat(glm::radians(m_TestCamera.RotationDeg)));
-        m_TestCamera.View = glm::inverse(cameraTransform);
+        ImVec2 imagePos = ImGui::GetCursorPos();
+        // NOTE: The framebuffer is resized in the next OnUpdate, so the image may be stretched for one frame
+        ImGui::Image((ImTextureID)m_FrameBufferImGuiTexture->GetImGuiColorAttachmentId(), viewportDimensions);
 
-        float aspectRatio = m_FrameBuffer->GetHeight() > 0 ? static_cast<float>(m_FrameBuffer->GetWidth()) /
-                                                                 static_cast<float>(m_FrameBuffer->GetHeight())
-                                                           : 1.0f;
-        // NOTE: Vulkan depth range is [0, 1]. Y is not flipped here because the viewport is already flipped
-        m_TestCamera.Projection = glm::perspectiveRH_ZO(glm::radians(m_TestCamera.FovYDeg), aspectRatio,
-                                                        m_TestCamera.Near, m_TestCamera.Far);
+        // Invisible button over the image takes the mouse, so dragging in the viewport doesn't move the window
+        ImGui::SetCursorPos(imagePos);
+        ImGui::InvisibleButton("##ViewportInput", viewportDimensions,
+                               ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight |
+                                   ImGuiButtonFlags_MouseButtonMiddle);
+        bool isViewportHovered = ImGui::IsItemHovered();
+
+        if (m_SceneState == SceneState::kEdit)
+        {
+            m_EditorCamera.OnUpdate(m_LastTimestep, isViewportHovered);
+        }
+        else if (!m_ActiveScene->GetPrimaryCameraEntity().IsValid())
+        {
+            ImGui::SetCursorPos({ imagePos.x + 8.0f, imagePos.y + 8.0f });
+            ImGui::TextColored({ 1.0f, 0.6f, 0.2f, 1.0f }, "No primary camera in the scene, using the editor camera");
+        }
     }
 
-    // Draws matrix by rows, glm stores it by columns
-    static bool DrawGuiMatrix(const char* _Label, glm::mat4& _Matrix)
+    void EditorLayer::DrawGuiPlayStopButton(float _FrameHeight, float _CursorPosY)
     {
-        bool isChanged = false;
+        bool isPlaying = m_SceneState == SceneState::kPlay;
 
-        ImGui::PushID(_Label);
-        ImGui::TextUnformatted(_Label);
-        for (int row = 0; row < 4; ++row)
+        ImGui::PushStyleColor(ImGuiCol_Button, 0x00000000);
+        float buttonWidth = _FrameHeight * 1.2f;
+        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - buttonWidth) * 0.5f);
+        if (GuiDrawMenuButton(isPlaying ? ICON_FA_STOP : ICON_FA_PLAY, _CursorPosY, { buttonWidth, _FrameHeight }))
         {
-            glm::vec4 rowValues = { _Matrix[0][row], _Matrix[1][row], _Matrix[2][row], _Matrix[3][row] };
-            ImGui::PushID(row);
-            if (ImGui::DragFloat4("##Row", &rowValues.x, 0.01f))
-            {
-                for (int column = 0; column < 4; ++column)
-                {
-                    _Matrix[column][row] = rowValues[column];
-                }
-                isChanged = true;
-            }
-            ImGui::PopID();
+            // TODO: Copy the scene on Play and restore it on Stop, run scene logic only while playing
+            m_SceneState = isPlaying ? SceneState::kEdit : SceneState::kPlay;
         }
-        ImGui::PopID();
-
-        return isChanged;
-    }
-
-    void EditorLayer::DrawGuiTestCamera()
-    {
-        ImGui::Checkbox("Edit matrices manually", &m_TestCamera.IsManualMatrices);
-
-        ImGui::BeginDisabled(m_TestCamera.IsManualMatrices);
-        ImGui::DragFloat3("Position", &m_TestCamera.Position.x, 0.01f);
-        ImGui::DragFloat3("Rotation", &m_TestCamera.RotationDeg.x, 0.1f);
-        ImGui::DragFloat("FOV Y", &m_TestCamera.FovYDeg, 0.1f, 1.0f, 179.0f);
-        ImGui::DragFloat("Near", &m_TestCamera.Near, 0.01f, 0.001f, m_TestCamera.Far);
-        ImGui::DragFloat("Far", &m_TestCamera.Far, 0.1f, m_TestCamera.Near, 10000.0f);
-        ImGui::EndDisabled();
-
-        if (ImGui::Button("Reset"))
-        {
-            m_TestCamera = EditorTestCamera {};
-        }
-
-        ImGui::Separator();
-
-        ImGui::BeginDisabled(!m_TestCamera.IsManualMatrices);
-        DrawGuiMatrix("View", m_TestCamera.View);
-        DrawGuiMatrix("Projection", m_TestCamera.Projection);
-        ImGui::EndDisabled();
+        ImGui::PopStyleColor();
     }
 
     bool EditorLayer::GuiDrawBeginMenu(std::string_view _Title)
@@ -496,6 +532,8 @@ namespace Vega
                 }
 
                 ImGui::PopStyleVar();
+
+                DrawGuiPlayStopButton(frameHeight, cursorPosY);
 
                 // Without the custom title bar the system draws the window buttons
                 if (isCustomTitleBar && !window->IsTitleBarHasNativeButtons())

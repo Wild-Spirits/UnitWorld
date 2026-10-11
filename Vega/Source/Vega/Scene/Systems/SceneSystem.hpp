@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vega/Core/Timestep.hpp"
+#include "Vega/Renderer/RenderView.hpp"
 
 namespace Vega
 {
@@ -19,7 +20,7 @@ namespace Vega
 
             virtual void OnUpdate(Scene* _Scene, Timestep _Timestep) = 0;
 
-            virtual void OnRender(Scene* _Scene) = 0;
+            virtual void OnRender(Scene* _Scene, const RenderView& _View) = 0;
         };
 
     }    // namespace SceneSystems

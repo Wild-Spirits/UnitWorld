@@ -126,6 +126,21 @@ rendererBackend->DrawIndexed(indexCount);
 
 Вся система uniform-ов в активной разработке (`SetUniformBufferData` помечен WIP).
 
+## Камера и RenderView
+
+- `RenderView` (`Renderer/RenderView.hpp`) — всё, что нужно рендеру для отрисовки с одной точки зрения: `View`,
+  `Projection`, `ViewProjection`, позиция, near/far, размер вьюпорта и `Frustum` (плоскости в мировом пространстве,
+  `IsSphereInside` для будущего отсечения). Код рендера зависит только от неё, а не от источника вида — так же будут
+  строиться виды для теней от источников света.
+- `CameraProjection` (`Renderer/Camera.hpp`) — параметры проекции без положения в мире (perspective: `FovYDeg`;
+  orthographic: `OrthoSize` — видимая высота). `GetProjection(aspect)` строит `perspectiveRH_ZO`/`orthoRH_ZO`:
+  глубина Vulkan [0, 1], Y не инвертируется, потому что viewport уже перевёрнут.
+- `MakeRenderView(projection, cameraWorld, viewportSize)` — единственное место, где из мировой матрицы камеры
+  (смотрит вдоль −Z, масштаб отбрасывается) получаются view, viewProj и фрустум. Используют `EditorCamera` и
+  `Scene::GetPrimaryCameraView`.
+- Per-frame UBO шейдера — один слот на кадр. Если один шейдер за кадр рисует несколько видов, последний перезапишет
+  предыдущие; такие данные надо будет перенести в per-group или push constants.
+
 ## RenderGraph
 
 `Renderer/RenderGraph/` — заготовка: `RenderGraph` (слои параллельных узлов + `m_MainSink`), пустой `RenderGraphNode`,
