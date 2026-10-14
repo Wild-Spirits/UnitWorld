@@ -190,10 +190,8 @@ namespace Vega
 
         Ref<RendererBackend> rendererBackend = Application::Get().GetRendererBackend();
 
-        // NOTE: Called before the frame is recorded. The ImGui wrapper holds descriptor sets of the old image views,
-        // which are still used by frames in flight (ImGui::Image of the viewport), so wait for the GPU before freeing
-        // them. Then the textures and the wrapper are recreated
-        rendererBackend->WaitIdle();
+        // NOTE: Called before the frame is recorded. Old textures and ImGui descriptor sets may still be used by frames
+        // in flight, but the backend destroys them only after those frames are complete, so no GPU wait is needed
         m_FrameBufferImGuiTexture->OnDetach();
         m_FrameBuffer->Resize(m_ViewportDimensions.x, m_ViewportDimensions.y);
         m_FrameBufferImGuiTexture = rendererBackend->CreateImGuiFrameBufferWrapper(m_FrameBuffer, m_FrameBufferSampler);

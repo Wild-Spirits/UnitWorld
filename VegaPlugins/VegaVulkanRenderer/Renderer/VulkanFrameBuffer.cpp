@@ -36,12 +36,7 @@ namespace Vega
 
     void VulkanFrameBuffer::Destroy()
     {
-        VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
-        VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
-
-        // TODO: find a better way to wait for all operations to be done on the framebuffer
-        VK_CHECK(vkDeviceWaitIdle(logicalDevice));
-
+        // NOTE: Textures are destroyed via the deletion queue, so frames in flight can still use them
         for (auto& textures : m_VulkanColorTextures)
         {
             for (auto& texture : textures)

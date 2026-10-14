@@ -381,11 +381,6 @@ namespace Vega
         const std::vector<ShaderUniform>& frequencyUniforms = GetShaderUniformsForFrequency(_Frequency);
         const size_t descriptorSetIndex = GetVulkanDescriptorSetConfigIndexForFrequency(_Frequency);
 
-        VEGA_CORE_WARN("VulkanShader::ApplyFrequency GetCurrentImageIndex: {}",
-                       rendererBackend->GetCurrentImageIndex());
-        VEGA_CORE_WARN("VulkanShader::ApplyFrequency GetCurrentFrameIndex: {}",
-                       rendererBackend->GetCurrentFrameIndex());
-
         const uint32_t frameIndex = rendererBackend->GetCurrentFrameIndex();
 
         std::vector<VkWriteDescriptorSet> descriptorWrites;

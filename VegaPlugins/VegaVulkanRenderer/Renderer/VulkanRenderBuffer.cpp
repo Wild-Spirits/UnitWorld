@@ -93,10 +93,16 @@ namespace Vega
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
 
-        VK_CHECK(vkDeviceWaitIdle(logicalDevice));
+        // NOTE: The buffer may still be used by frames in flight
+        VkBuffer buffer = m_VkBuffer;
+        VkDeviceMemory bufferMemory = m_BufferMemory;
+        rendererBackend->EnqueueDeletion([logicalDevice, vkAllocator, buffer, bufferMemory]() {
+            vkDestroyBuffer(logicalDevice, buffer, vkAllocator);
+            vkFreeMemory(logicalDevice, bufferMemory, vkAllocator);
+        });
 
-        vkFreeMemory(logicalDevice, m_BufferMemory, vkAllocator);
-        vkDestroyBuffer(logicalDevice, m_VkBuffer, vkAllocator);
+        m_VkBuffer = nullptr;
+        m_BufferMemory = nullptr;
     }
 
     void VulkanRenderBuffer::LoadRangeInternal(size_t _Offset, size_t _Size, const void* _Data,
@@ -107,10 +113,30 @@ namespace Vega
 
         if (IsVulkanRenderBufferDeviceLocal() && !IsVulkanRenderBufferHostVisible())
         {
-            Ref<VulkanRenderBuffer> stagingBuffer = rendererBackend->GetCurrentStagingBuffer();
-            size_t stagingOffset = stagingBuffer->LoadRange(_Size, _Data, _IncludeInFrameWorkload);
-            VEGA_CORE_INFO("CopyRangeInternal: stagingOffset={}, size={}, _Offset={}", stagingOffset, _Size, _Offset);
-            CopyRangeInternal(stagingOffset, stagingBuffer->GetVkBuffer(), _Offset, _Size, _IncludeInFrameWorkload);
+            if (_IncludeInFrameWorkload)
+            {
+                Ref<VulkanRenderBuffer> stagingBuffer = rendererBackend->GetCurrentStagingBuffer();
+                size_t stagingOffset = stagingBuffer->LoadRange(_Size, _Data, _IncludeInFrameWorkload);
+                VEGA_CORE_INFO("CopyRangeInternal: stagingOffset={}, size={}, _Offset={}", stagingOffset, _Size,
+                               _Offset);
+                CopyRangeInternal(stagingOffset, stagingBuffer->GetVkBuffer(), _Offset, _Size, _IncludeInFrameWorkload);
+            }
+            else
+            {
+                // NOTE: The copy is not waited for, so the frame staging buffer can't be used here: outside of the
+                // frame it can be cleared and refilled before the copy is executed. The temporary staging buffer is
+                // freed via the deletion queue after the copy is complete
+                // TODO: Use a staging buffer pool to avoid allocations on each upload
+                VulkanRenderBuffer stagingBuffer(RenderBufferProps {
+                    .Name = std::format("{}_upload_staging_buffer", m_RenderBufferProps.Name),
+                    .Type = RenderBufferType::kStaging,
+                    .ElementSize = 1,
+                    .ElementCount = _Size,
+                });
+                stagingBuffer.LoadRange(_Size, _Data, false);
+                CopyRangeInternal(0, stagingBuffer.GetVkBuffer(), _Offset, _Size, false);
+                stagingBuffer.Destroy();
+            }
         }
         else
         {
@@ -129,9 +155,18 @@ namespace Vega
         VkCommandBuffer commandBuffer;
         if (!_IncludeInFrameWorkload)
         {
-            // TODO: Optimize wait idle (maybe we can remove it at all)
-            VK_CHECK(vkQueueWaitIdle(rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue()));
             commandBuffer = rendererBackend->CreateAndBeginSingleUseCommandBuffer();
+
+            // NOTE: Instead of vkQueueWaitIdle: the copy waits on the GPU for previously submitted frames that may
+            // still use this range of the buffer
+            VkMemoryBarrier memoryBarrier = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            };
+
+            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1,
+                                 &memoryBarrier, 0, nullptr, 0, nullptr);
         }
         else
         {
@@ -148,9 +183,17 @@ namespace Vega
 
         if (!_IncludeInFrameWorkload)
         {
-            rendererBackend->DestroyAndEndSingleUseCommandBuffer(
-                commandBuffer, rendererBackend->GetVkDeviceWrapper().GetGraphicsQueue(),
-                rendererBackend->GetVkDeviceWrapper().GetGraphicsCommandPool());
+            // Makes the copied data visible to the frames submitted after this command buffer
+            VkMemoryBarrier memoryBarrier = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            };
+
+            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1,
+                                 &memoryBarrier, 0, nullptr, 0, nullptr);
+
+            rendererBackend->EndAndSubmitSingleUseCommandBuffer(commandBuffer);
         }
         else
         {

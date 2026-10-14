@@ -393,28 +393,37 @@ namespace Vega
         VkDevice logicalDevice = rendererBackend->GetVkDeviceWrapper().GetLogicalDevice();
         const VkAllocationCallbacks* vkAllocator = rendererBackend->GetVkContext().VkAllocator;
 
-        // TODO: find a better way to wait for all operations to be done on the texture
-        VK_CHECK(vkDeviceWaitIdle(logicalDevice));
-
+        // NOTE: The texture may still be used by frames in flight
+        VkImageView imageView = m_ImageView;
+        std::vector<VkImageView> imageArrayViews;
         if (m_ImageView)
         {
-            vkDestroyImageView(logicalDevice, m_ImageView, vkAllocator);
-
-            for (VkImageView imageView : m_ImageArrayViews)
-            {
-                vkDestroyImageView(logicalDevice, imageView, vkAllocator);
-            }
+            imageArrayViews = std::move(m_ImageArrayViews);
 
             m_ImageView = nullptr;
             m_ImageArrayViews.clear();
             m_ImageArrayViewsSubresourceRanges.clear();
             m_ImageArrayViewsInfos.clear();
         }
+        VkImage image = m_Image;
+        VkDeviceMemory imageMemory = m_ImageMemory;
 
-        vkFreeMemory(logicalDevice, m_ImageMemory, vkAllocator);
+        rendererBackend->EnqueueDeletion(
+            [logicalDevice, vkAllocator, imageView, imageArrayViews = std::move(imageArrayViews), image, imageMemory]() {
+                if (imageView)
+                {
+                    vkDestroyImageView(logicalDevice, imageView, vkAllocator);
+                }
+                for (VkImageView arrayView : imageArrayViews)
+                {
+                    vkDestroyImageView(logicalDevice, arrayView, vkAllocator);
+                }
+
+                vkDestroyImage(logicalDevice, image, vkAllocator);
+                vkFreeMemory(logicalDevice, imageMemory, vkAllocator);
+            });
+
         m_ImageMemory = nullptr;
-
-        vkDestroyImage(logicalDevice, m_Image, vkAllocator);
         m_Image = nullptr;
     }
 

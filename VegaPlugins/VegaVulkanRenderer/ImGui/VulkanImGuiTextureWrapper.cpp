@@ -1,4 +1,5 @@
 #include "VulkanImGuiTextureWrapper.hpp"
+#include "Renderer/VulkanRendererBackend.hpp"
 
 #include "backends/imgui_impl_vulkan.h"
 
@@ -16,7 +17,10 @@ namespace Vega
     {
         if (m_DescriptorSet != VK_NULL_HANDLE)
         {
-            ImGui_ImplVulkan_RemoveTexture(m_DescriptorSet);
+            // NOTE: The descriptor set may still be used by ImGui draw commands of frames in flight
+            VkDescriptorSet descriptorSet = m_DescriptorSet;
+            VulkanRendererBackend::GetVkRendererBackend()->EnqueueDeletion(
+                [descriptorSet]() { ImGui_ImplVulkan_RemoveTexture(descriptorSet); });
         }
         m_DescriptorSet = VK_NULL_HANDLE;
     }

@@ -6,6 +6,8 @@
 #include "VulkanRenderBuffer.hpp"
 #include "VulkanSwapchain.hpp"
 
+#include <deque>
+#include <functional>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -109,6 +111,17 @@ namespace Vega
         VkCommandBuffer CreateAndBeginSingleUseCommandBuffer();
         void DestroyAndEndSingleUseCommandBuffer(VkCommandBuffer _CommandBuffer, VkQueue _Queue,
                                                  VkCommandPool _CommandPool);
+        // NOTE: Doesn't wait for the GPU: the command buffer is freed via the deletion queue
+        void EndAndSubmitSingleUseCommandBuffer(VkCommandBuffer _CommandBuffer);
+
+        /**
+         * @brief Defers destruction of GPU objects until the GPU is done with them.
+         *
+         * The deleter runs once all frames submitted up to the current one are complete, so objects used by frames
+         * in flight can be "destroyed" without waiting for the device to become idle.
+         * The deleter must capture Vulkan handles by value, not the objects owning them.
+         */
+        void EnqueueDeletion(std::function<void()> _Deleter);
 
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props) override;
         Ref<Texture> CreateTexture(std::string_view _Name, const TextureProps& _Props, uint8_t* _Data) override;
@@ -151,6 +164,9 @@ namespace Vega
         void CommandBufferEnd(VkCommandBuffer _VkCommandBuffer);
         void CommandBufferUpdateSubmited(VkCommandBuffer _VkCommandBuffer);
 
+        // Runs deleters of all frames up to _CompletedFrameNumber inclusive
+        void FlushDeletionQueue(uint64_t _CompletedFrameNumber);
+
     private:
         static void VerifyRequiredExtensions(const std::vector<const char*>& _RequiredExtensions);
 
@@ -182,6 +198,19 @@ namespace Vega
 
         uint32_t m_CurrentFrame = 0;
         uint32_t m_ImageIndex = 0;
+
+        struct DeferredDeletion
+        {
+            uint64_t FrameNumber;
+            std::function<void()> Deleter;
+        };
+
+        // NOTE: Frame numbers grow monotonically (unlike m_CurrentFrame) and start from 1, 0 means "nothing submitted"
+        uint64_t m_FrameNumber = 1;
+        // Frame number submitted with the in-flight fence of each frame index
+        std::vector<uint64_t> m_InFlightFrameNumbers;
+        // Sorted by FrameNumber, since entries are only appended with the current frame number
+        std::deque<DeferredDeletion> m_DeletionQueue;
 
         VkDescriptorPool m_ImGuiDescriptorPool = nullptr;
 

@@ -24,6 +24,9 @@
 - **Явное освобождение GPU-ресурсов.** `Texture`/`Sampler`/`Shader`/ImGui-обёртки требуют `OnDetach()`,
   `FrameBuffer` — `Destroy()`. Делай это в `OnDetach` слоя, `OnDetach` менеджера или `Destroy` системы сцены.
   Порядок уничтожения в `Application::~Application`: слои → менеджеры → бэкенд.
+- **Отложенное удаление в Vulkan.** Деструкторы в очереди удаления захватывают Vulkan-хэндлы по значению, а не
+  объект-владелец. Удаление ImGui-текстур тоже отложено, поэтому `VulkanImGuiImpl::Shutdown` вызывает `WaitIdle`
+  (он очищает очередь) до `ImGui_ImplVulkan_Shutdown`.
 - **Трансформ только через сеттеры.** `Entity::GetComponent<TransformComponent>()` удалён (`= delete`), а
   `registry.get<TransformComponent>` в обход `Entity` сломает пометку `TransformDirtyComponent`. Используй
   `GetTransform()` + `SetTransform*`.

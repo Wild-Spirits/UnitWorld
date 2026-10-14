@@ -160,13 +160,18 @@ namespace Vega
         return true;
     }
 
-    void VulkanRendererBackend::WaitIdle() { VK_CHECK(vkDeviceWaitIdle(m_VkDeviceWrapper.GetLogicalDevice())); }
+    void VulkanRendererBackend::WaitIdle()
+    {
+        VK_CHECK(vkDeviceWaitIdle(m_VkDeviceWrapper.GetLogicalDevice()));
+        FlushDeletionQueue(UINT64_MAX);
+    }
 
     void VulkanRendererBackend::Shutdown()
     {
         VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
 
         vkDeviceWaitIdle(logicalDevice);
+        FlushDeletionQueue(UINT64_MAX);
 
         DestroyImGuiDescriptorPool();
 
@@ -232,6 +237,7 @@ namespace Vega
             m_ImageAvailableSemaphores.resize(maxFramesInFlight);
             m_QueueCompleteSemaphores.resize(maxFramesInFlight);
             m_InFlightFences.resize(maxFramesInFlight);
+            m_InFlightFrameNumbers.assign(maxFramesInFlight, 0);
 
             m_StagingBuffers.reserve(maxFramesInFlight);
             for (uint32_t i = 0; i < maxFramesInFlight; ++i)
@@ -318,6 +324,7 @@ namespace Vega
             vkDestroyFence(logicalDevice, fence, m_VkContext.VkAllocator);
         }
         m_InFlightFences.clear();
+        m_InFlightFrameNumbers.clear();
 
         for (VkCommandBuffer commandBuffer : m_GraphicsCommandBuffer)
         {
@@ -360,6 +367,7 @@ namespace Vega
                 VEGA_CORE_ASSERT(false, "FramePrepareWindowSurface vkDeviceWaitIdle failed!");
                 return false;
             }
+            FlushDeletionQueue(UINT64_MAX);
 
             if (!RecreateSwapchain())
             {
@@ -397,6 +405,9 @@ namespace Vega
             VEGA_CORE_ASSERT(false, "In-flight fence wait failure!");
             return false;
         }
+
+        // NOTE: The fence also covers everything submitted to the queue before this frame
+        FlushDeletionQueue(m_InFlightFrameNumbers[m_CurrentFrame]);
 
         VkResult acquireNextImageResult =
             vkAcquireNextImageKHR(logicalDevice, m_VkSwapchain.GetSwapchainHandle(), UINT64_MAX,
@@ -475,6 +486,7 @@ namespace Vega
             VEGA_CORE_CRITICAL("vkQueueSubmit failed with result: {}", VulkanResultString(result, true));
             VEGA_CORE_ASSERT(false, "vkQueueSubmit failed!");
         }
+        m_InFlightFrameNumbers[m_CurrentFrame] = m_FrameNumber;
 
         CommandBufferUpdateSubmited(commandBuffer);
     }
@@ -509,6 +521,7 @@ namespace Vega
         }
 
         m_CurrentFrame = (m_CurrentFrame + 1) % m_VkSwapchain.GetMaxFramesInFlight();
+        ++m_FrameNumber;
     }
 
     void VulkanRendererBackend::ClearColorTexture()
@@ -1003,6 +1016,45 @@ namespace Vega
         VK_CHECK(vkQueueWaitIdle(_Queue));
 
         vkFreeCommandBuffers(m_VkDeviceWrapper.GetLogicalDevice(), _CommandPool, 1, &_CommandBuffer);
+    }
+
+    void VulkanRendererBackend::EndAndSubmitSingleUseCommandBuffer(VkCommandBuffer _CommandBuffer)
+    {
+        VK_CHECK(vkEndCommandBuffer(_CommandBuffer));
+
+        VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &_CommandBuffer,
+        };
+
+        VK_CHECK(vkQueueSubmit(m_VkDeviceWrapper.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE));
+
+        // NOTE: The in-flight fence of the next submitted frame is signaled only after this submission is complete
+        VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
+        VkCommandPool commandPool = m_VkDeviceWrapper.GetGraphicsCommandPool();
+        EnqueueDeletion([logicalDevice, commandPool, _CommandBuffer]() {
+            vkFreeCommandBuffers(logicalDevice, commandPool, 1, &_CommandBuffer);
+        });
+    }
+
+    void VulkanRendererBackend::EnqueueDeletion(std::function<void()> _Deleter)
+    {
+        // Resources may be used by any frame submitted before, including the one being recorded now
+        m_DeletionQueue.push_back(DeferredDeletion {
+            .FrameNumber = m_FrameNumber,
+            .Deleter = std::move(_Deleter),
+        });
+    }
+
+    void VulkanRendererBackend::FlushDeletionQueue(uint64_t _CompletedFrameNumber)
+    {
+        while (!m_DeletionQueue.empty() && m_DeletionQueue.front().FrameNumber <= _CompletedFrameNumber)
+        {
+            std::function<void()> deleter = std::move(m_DeletionQueue.front().Deleter);
+            m_DeletionQueue.pop_front();
+            deleter();
+        }
     }
 
     Ref<Texture> VulkanRendererBackend::CreateTexture(std::string_view _Name, const TextureProps& _Props)

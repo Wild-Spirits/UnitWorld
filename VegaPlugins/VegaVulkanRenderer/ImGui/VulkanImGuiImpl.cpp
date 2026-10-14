@@ -110,7 +110,8 @@ namespace Vega
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
-        VK_CHECK(vkDeviceWaitIdle(rendererBackend->GetVkDeviceWrapper().GetLogicalDevice()));
+        // NOTE: Also flushes the deletion queue: it may hold removals of ImGui textures, which require the ImGui backend
+        rendererBackend->WaitIdle();
 
         ImGui_ImplVulkan_Shutdown();
     }

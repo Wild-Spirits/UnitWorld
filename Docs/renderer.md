@@ -30,6 +30,12 @@
 GPU-ресурсы **освобождаются явно**, деструкторы `Ref` этого не делают. Освобождайте их в `OnDetach` слоя/менеджера
 или в `Destroy` системы сцены — до `RendererBackend::Shutdown`.
 
+В Vulkan-бэкенде `OnDetach`/`Destroy` текстур, `RenderBuffer`, `FrameBuffer` и ImGui-обёрток не ждут GPU: хэндлы
+уходят в очередь отложенного удаления (`VulkanRendererBackend::EnqueueDeletion`) с номером текущего кадра и
+уничтожаются, когда фенс этого кадра (или более позднего) просигнален. Поэтому ресурс можно освободить и пересоздать
+прямо между кадрами, даже если он используется кадрами в полёте (так работает ресайз вьюпорта редактора). `WaitIdle`,
+пересоздание swapchain и `Shutdown` очищают очередь целиком.
+
 ## Бэкенды
 
 ### Vulkan (`VegaPlugins/VegaVulkanRenderer`) — основной
@@ -40,6 +46,9 @@ GPU-ресурсы **освобождаются явно**, деструктор
   `VegaVulkanPlugin.hpp` с макросом экспорта `VEGA_VULKAN_RENDERER_API`.
 - Использует **dynamic rendering** (`vkCmdBeginRendering`), без `VkRenderPass`.
 - Ресурсы на кадр (семафоры, фенсы, staging-буферы, command buffers) — по `VulkanSwapchain::GetMaxFramesInFlight()`.
+- Загрузка в device-local `RenderBuffer` с `_IncludeInFrameWorkload = false` не ждёт очередь: копия идёт через
+  временный staging-буфер в отдельном command buffer (`EndAndSubmitSingleUseCommandBuffer`), барьеры упорядочивают её
+  с кадрами до и после, а буфер и command buffer освобождаются через очередь отложенного удаления.
 - Внутренние классы: `VulkanDeviceWrapper` (instance/physical/logical device, очереди), `VulkanSwapchain`,
   `VulkanTexture` (хранит текущий layout, переходы через `TransitionImageLayout`), `VulkanSampler`,
   `VulkanFrameBuffer`, `VulkanRenderBuffer`, `VulkanShader` (пайплайн + дескрипторы), `ImGui/*`.
