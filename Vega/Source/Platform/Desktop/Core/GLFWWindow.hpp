@@ -16,7 +16,9 @@ namespace Vega
         struct WindowData : WindowProps
         {
             WindowData(const WindowProps& _Props) : WindowProps(_Props) { }
-            Ref<EventManager> EventManager;
+            // `class` here is an elaborated type specifier: GCC rejects `Ref<EventManager> EventManager`
+            // as "declaration changes meaning of EventManager". Same type, MSVC unaffected.
+            Ref<class EventManager> EventManager;
             float MonitorScale = 1.0f;
             GLFWTitleBar* TitleBar = nullptr;
         };

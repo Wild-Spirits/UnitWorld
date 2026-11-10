@@ -16,6 +16,20 @@ namespace Vega
 
         m_SwapchainSupportInfo = _VkDeviceWrapper.GetSwapchainSupportInfo(_VkSurface);
 
+        // Must be checked before the first Formats[0]/PresentModes[0] use below: an empty list means
+        // the selected physical device cannot present to this surface and indexing it is UB.
+        if (m_SwapchainSupportInfo.Formats.empty() || m_SwapchainSupportInfo.PresentModes.empty())
+        {
+            VEGA_CORE_CRITICAL(
+                "Vulkan swapchain: surface query returned {} formats and {} present modes for window "
+                "\"{}\". The selected physical device cannot present to this surface; check the GPU that "
+                "owns the display versus the selected device.",
+                m_SwapchainSupportInfo.Formats.size(), m_SwapchainSupportInfo.PresentModes.size(),
+                window->GetTitle());
+            VEGA_CORE_ASSERT(false, "Swapchain support info is invalid.");
+            return false;
+        }
+
         bool found = false;
         for (size_t i = 0; i < m_SwapchainSupportInfo.Formats.size(); ++i)
         {
@@ -65,13 +79,6 @@ namespace Vega
         {
             presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
             VEGA_CORE_INFO("Vulkan swapchain: Immediate present mode selected.");
-        }
-
-        if (m_SwapchainSupportInfo.Formats.size() < 1 || m_SwapchainSupportInfo.PresentModes.size() < 1)
-        {
-            VEGA_CORE_INFO("Required swapchain support not present, skipping device.");
-            VEGA_CORE_ASSERT(false, "Swapchain support info is invalid.");
-            return false;
         }
 
         if (m_SwapchainSupportInfo.Capabilities.currentExtent.width != UINT32_MAX)

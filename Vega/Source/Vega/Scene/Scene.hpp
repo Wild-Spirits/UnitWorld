@@ -10,6 +10,7 @@
 
 #include <optional>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace Vega
@@ -33,10 +34,6 @@ namespace Vega
 
         template <typename T>
         const T& GetConstComponent();
-
-        // Специализация для запрета GetComponent<TransformComponent>
-        template <>
-        Components::TransformComponent& GetComponent<Components::TransformComponent>() = delete;
 
         const Components::TransformComponent& GetTransform();
 
@@ -116,6 +113,10 @@ namespace Vega
     template <typename T>
     T& Entity::GetComponent()
     {
+        // Forbidden for TransformComponent (was: deleted explicit specialization, an MSVC-only extension:
+        // GCC rejects explicit specialization at class scope). Use GetTransform() instead.
+        static_assert(!std::is_same_v<T, Components::TransformComponent>,
+                      "GetComponent<TransformComponent>() is disabled, use GetTransform()");
         VEGA_CORE_ASSERT(HasComponent<T>(), "Entity does not have component!");
 
         return m_Scene->m_Registry.get<T>(m_Handle);

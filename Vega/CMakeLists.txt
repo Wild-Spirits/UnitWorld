@@ -118,7 +118,8 @@ set(SOURCES
     Source/Platform/Linux/Core/LinuxTitleBar.hpp                            Source/Platform/Linux/Core/LinuxTitleBar.cpp
     Source/Platform/MacOS/Core/MacOSTitleBar.hpp
 
-    Source/Platform/Windows/Plugins/WinPluginLibrary.cpp                     
+    Source/Platform/Windows/Plugins/WinPluginLibrary.cpp
+    Source/Platform/Linux/Plugins/LinuxPluginLibrary.cpp
 
     # Source/Platform/OpenGL/Textures/OpenGlCalcTextureParameters.h     Source/Platform/OpenGL/Textures/OpenGlCalcTextureParameters.cpp
 

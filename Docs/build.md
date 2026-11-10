@@ -2,13 +2,16 @@
 
 ## Требования
 
-- Windows 10/11 x64 (другие платформы объявлены в `Platform/Platform.hpp`, но загрузчик плагинов реализован только
-  для Windows — `Platform/Windows/Plugins/WinPluginLibrary.cpp`).
+- Windows 10/11 x64 (основная платформа) или Linux x64 (GCC). Другие платформы объявлены в `Platform/Platform.hpp`,
+  но загрузчик плагинов реализован только для Windows (`Platform/Windows/Plugins/WinPluginLibrary.cpp`)
+  и Linux (`Platform/Linux/Plugins/LinuxPluginLibrary.cpp`, `dlopen`).
 - CMake ≥ 3.12 (пресеты используют схему версии 3, на практике нужен CMake ≥ 3.21).
-- MSVC (Visual Studio 2022, toolset v143) или `clang-cl`.
-- Ninja (для пресетов `windows-ninja-*`).
-- **Vulkan SDK** с переменной окружения `VULKAN_SDK`. Плагин линкуется с `Vulkan::Vulkan` и `shaderc_shared`
+- MSVC (Visual Studio 2022, toolset v143) или `clang-cl`; на Linux — `gcc`/`g++` с C++20.
+- Ninja (для пресетов `*-ninja-*`).
+- **Vulkan SDK** с переменной окружения `VULKAN_SDK` (Windows). Плагин линкуется с `Vulkan::Vulkan` и `shaderc_shared`
   из `$VULKAN_SDK/Lib`, `shaderc_shared.dll` должна находиться в `PATH` при запуске.
+  На Linux вместо SDK достаточно системных пакетов (`libvulkan-dev`, `libshaderc-dev` — плагин линкуется с
+  `libshaderc.so`); набор пакетов ставит `scripts/linux-packages/ubuntu26.sh`.
 - Доступ в интернет при первой конфигурации — зависимости тянутся через `FetchContent`.
 
 ## Пресеты
@@ -20,6 +23,7 @@
 | `windows-ninja-msvc-x64` | Ninja + `cl.exe` (основной; на него смотрит `.clangd`) |
 | `windows-ninja-clang-x64` | Ninja + `clang-cl.exe` |
 | `windows-vs-msvc-x64` | Visual Studio 17 2022 (см. ограничение ниже) |
+| `linux-ninja-gcc-x64` | Ninja + `g++` (пакеты: `scripts/linux-packages/ubuntu26.sh`) |
 
 Build-пресеты: `<configure-preset>-debug`, `-release`, `-RelWithDebInfo`.
 
@@ -27,6 +31,12 @@ Build-пресеты: `<configure-preset>-debug`, `-release`, `-RelWithDebInfo`.
 # из "Developer PowerShell for VS 2022" (нужны cl.exe и окружение MSVC)
 cmake --preset windows-ninja-msvc-x64
 cmake --build --preset windows-ninja-msvc-x64-debug
+```
+
+```bash
+# Linux (нужен Vulkan ICD от драйвера GPU: mesa-vulkan-drivers или NVIDIA-драйвер)
+cmake --preset linux-ninja-gcc-x64
+cmake --build --preset linux-ninja-gcc-x64-debug
 ```
 
 Ninja — одноконфигурационный генератор: тип сборки фактически задаётся на этапе configure (`CMAKE_BUILD_TYPE`),

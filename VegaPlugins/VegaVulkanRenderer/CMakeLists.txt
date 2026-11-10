@@ -13,6 +13,7 @@ set(SOURCES
 
     Platform/VulkanPlatform.hpp
     Platform/VulkanPlatformWindows.cpp
+    Platform/VulkanPlatformLinux.cpp
 
     ImGui/VulkanImGuiImpl.hpp                               ImGui/VulkanImGuiImpl.cpp
     ImGui/VulkanImGuiBackend.cpp
@@ -46,10 +47,19 @@ if (WIN32)
     target_link_directories(VegaVulkanRenderer PRIVATE
         ${Vulkan_INCLUDE_DIRS}/../Lib
     )
+    set(SHADERC_LIBRARY shaderc_shared)
+else()
+    # Vulkan SDK ships shaderc_shared; the distro package (libshaderc-dev) ships libshaderc.so
+    find_library(SHADERC_LIBRARY NAMES shaderc_shared shaderc REQUIRED)
 endif()
 
 # target_link_libraries(${PROJECT_NAME} Vega Vulkan::Vulkan ${Vulkan_shaderc_LIBRARY} ${Vulkan_shaderc_shared_LIBRARY})
-target_link_libraries(${PROJECT_NAME} Vega Vulkan::Vulkan ${Vulkan_LIBRARIES} shaderc_shared) 
+target_link_libraries(${PROJECT_NAME} Vega Vulkan::Vulkan ${Vulkan_LIBRARIES} ${SHADERC_LIBRARY})
+
+# PluginLibrary looks for "<dir>/VegaVulkanRenderer/VegaVulkanRenderer.<dll|so>": no "lib" prefix on Linux.
+if(UNIX AND NOT APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
+endif()
 
 if(MSVC)
     set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "Vega/Plugins")

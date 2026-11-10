@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 struct ImGuiContext;
 typedef void* (*ImGuiMemAllocFunc)(size_t sz, void* user_data);
 typedef void (*ImGuiMemFreeFunc)(void* ptr, void* user_data);

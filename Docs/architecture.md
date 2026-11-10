@@ -13,7 +13,7 @@
 | `Vega/Source/Vega/Plugins` | `PluginLibrary` — загрузка DLL и поиск экспортированных функций |
 | `Vega/Source/Vega/ImGui` | Интерфейсы `ImGuiImpl`, обёртки текстур/фреймбуферов для ImGui, иконочные шрифты Font Awesome |
 | `Vega/Source/Vega/Utils` | Собственный `Logger`/`Log`, `PluginData`, `magic_enum.hpp`, `utf8.hpp` |
-| `Vega/Source/Platform` | Платформенный код: `Platform.hpp` (макросы `VEGA_PLATFORM_*`), GLFW-окно/ввод, кастомный заголовок окна (`Desktop`/`Windows`/`Linux`/`MacOS`), OpenGL-бэкенд (заглушка), WinAPI-загрузчик плагинов |
+| `Vega/Source/Platform` | Платформенный код: `Platform.hpp` (макросы `VEGA_PLATFORM_*`), GLFW-окно/ввод, кастомный заголовок окна (`Desktop`/`Windows`/`Linux`/`MacOS`), OpenGL-бэкенд (заглушка), загрузчик плагинов (WinAPI / `dlopen`) |
 | `VegaPlugins/VegaVulkanRenderer` | Реализация `RendererBackend` на Vulkan, собирается в DLL — см. [renderer.md](renderer.md) |
 | `Editor/Source` | Приложение-редактор: `main.cpp`, `EditorLayer`, панели `SceneHierarchyPanel`, `EntityPropsPanel` |
 | `Assets` | Шрифты, текстуры, GLSL-шейдеры (`Shaders/Source/*.vert|frag` + сгенерированные `*.spv`), `AppConfig.json` |

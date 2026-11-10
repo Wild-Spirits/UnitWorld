@@ -11,7 +11,9 @@ namespace Vega
 
     struct VulkanContext
     {
-        VkInstance VkInstance;
+        // Named `struct VkInstance_T*` (elaborated type specifier): GCC rejects `VkInstance VkInstance`
+        // as "declaration changes meaning of VkInstance". Same type, MSVC unaffected.
+        struct VkInstance_T* VkInstance;
         VkAllocationCallbacks* VkAllocator = nullptr;
 
 #ifdef _DEBUG

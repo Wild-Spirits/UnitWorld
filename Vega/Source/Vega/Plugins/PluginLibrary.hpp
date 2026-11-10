@@ -3,6 +3,9 @@
 #include "Platform/Platform.hpp"
 
 #include <filesystem>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #ifdef VEGA_PLATFORM_WINDOWS
     #define NOMINMAX
@@ -50,6 +53,8 @@ namespace Vega
     protected:
 #ifdef VEGA_PLATFORM_WINDOWS
         HMODULE m_LibraryHandle = nullptr;
+#else
+        void* m_LibraryHandle = nullptr;
 #endif
 
         PluginLibraryProps m_PluginLibraryProps;
