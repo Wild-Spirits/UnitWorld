@@ -261,6 +261,8 @@ namespace Vega
         VEGA_CORE_TRACE("Creating Vulkan depth buffer for window {} . . .", windowTitle);
         m_DepthBufferTextures.clear();
         m_DepthBufferTextures.reserve(m_VkSwapchain.GetImagesCount());
+        // Must match the swapchain extent (physical pixels), not the logical window size
+        VkExtent2D swapchainExtent = m_VkSwapchain.GetExtent();
         for (size_t i = 0; i < m_VkSwapchain.GetImagesCount(); ++i)
         {
             Ref<VulkanTexture> depthBufferTexture = CreateRef<VulkanTexture>();
@@ -268,8 +270,8 @@ namespace Vega
                 std::format("{}_depth_buffer_{}", windowTitle, i),
                 TextureProps {
                     .Type = TextureProps::TextureType::k2D,
-                    .Width = _Window->GetWidth(),
-                    .Height = _Window->GetHeight(),
+                    .Width = swapchainExtent.width,
+                    .Height = swapchainExtent.height,
                     .ChannelCount = m_VkDeviceWrapper.GetDepthChannelCount(),
                     .MipLevels = 1,
                     .ArraySize = 1,
@@ -343,6 +345,15 @@ namespace Vega
         // TODO: Implement spawchain recreation
 
         VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
+
+        // The physical framebuffer size can change without a resize event (e.g. the window moves to an
+        // output with a different scale): keep the swapchain extent in sync with it
+        glm::uvec2 framebufferSize = Application::Get().GetWindow()->GetFramebufferSize();
+        VkExtent2D swapchainExtent = m_VkSwapchain.GetExtent();
+        if (framebufferSize.x != swapchainExtent.width || framebufferSize.y != swapchainExtent.height)
+        {
+            m_IsNeedRecreateSwapchain = true;
+        }
 
         if (m_IsNeedRecreateSwapchain)
         {
@@ -594,7 +605,8 @@ namespace Vega
         VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
         auto _Window = Application::Get().GetWindow();
 
-        if (_Window->GetWidth() == 0 || _Window->GetHeight() == 0)
+        glm::uvec2 framebufferSize = _Window->GetFramebufferSize();
+        if (framebufferSize.x == 0 || framebufferSize.y == 0)
         {
             return false;
         }

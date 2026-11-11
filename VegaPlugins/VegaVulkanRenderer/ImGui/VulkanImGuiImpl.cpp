@@ -2,7 +2,6 @@
 
 #include "Renderer/VulkanRendererBackend.hpp"
 #include "Utils/VulkanUtils.hpp"
-#include "Vega/Core/Application.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
 
@@ -77,15 +76,16 @@ namespace Vega
 
     void VulkanImGuiImpl::NewFrame()
     {
-        Application& app = Application::Get();
-        Ref<Window> window = app.GetWindow();
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
         std::vector<std::vector<Ref<VulkanTexture>>> swapchainTextures = {
             rendererBackend->GetVkSwapchain().GetVulkanColorTextures()
         };
 
-        rendererBackend->VulkanBeginRendering({ 0.0f, 0.0f }, { window->GetWidth(), window->GetHeight() },
+        // The render area is in physical pixels of the swapchain image: ImGui scales its own viewport and
+        // projection by ImDrawData::FramebufferScale, a logical-sized render area would clip that output
+        VkExtent2D swapchainExtent = rendererBackend->GetVkSwapchain().GetExtent();
+        rendererBackend->VulkanBeginRendering({ 0.0f, 0.0f }, { swapchainExtent.width, swapchainExtent.height },
                                               swapchainTextures, {});
 
         ImGui_ImplVulkan_NewFrame();

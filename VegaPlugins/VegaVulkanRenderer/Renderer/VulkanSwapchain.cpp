@@ -12,7 +12,11 @@ namespace Vega
         VkDevice logicalDevice = _VkDeviceWrapper.GetLogicalDevice();
 
         Ref<Window> window = Application::Get().GetWindow();
-        VkExtent2D swapchainExtent = { window->GetWidth(), window->GetHeight() };
+        // Physical pixels, not the logical window size: with HiDPI scaling a logical-sized swapchain is
+        // smaller than the surface, and the compositor stretches the image (ImGui renders at framebuffer
+        // scale, so its output would also be clipped). currentExtent below overrides this when defined.
+        glm::uvec2 framebufferSize = window->GetFramebufferSize();
+        VkExtent2D swapchainExtent = { framebufferSize.x, framebufferSize.y };
 
         m_SwapchainSupportInfo = _VkDeviceWrapper.GetSwapchainSupportInfo(_VkSurface);
 

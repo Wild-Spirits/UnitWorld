@@ -29,6 +29,7 @@ namespace Vega
 
         virtual uint32_t GetWidth() const override { return m_Data.Width; }
         virtual uint32_t GetHeight() const override { return m_Data.Height; }
+        virtual glm::uvec2 GetFramebufferSize() const override;
         virtual glm::dvec2 GetCursorInWindowPosition() const override;
         virtual std::string_view GetTitle() const override { return m_Data.Title; }
         virtual float GetMonitorScale() const override { return m_Data.MonitorScale; }

@@ -46,6 +46,12 @@
 - **Менеджеры по строковому имени.** Опечатка в имени `GetManager("…")` — ассерт в Debug и исключение
   `std::out_of_range` в Release.
 - **Ресайз пропускает кадр**: при `m_Resizing` бэкенд пересоздаёт swapchain, слои в этом кадре не рендерятся.
+- **Размер окна логический, framebuffer — физический.** На Wayland с масштабированием `Window::GetWidth/GetHeight`
+  возвращают логические координаты, а `GetFramebufferSize()` — физические пиксели (могут отличаться, например, в 1.6
+  раза). Swapchain, `renderArea` и depth-буфер создаются по физическому размеру (`VulkanSwapchain::Create`,
+  `VulkanImGuiImpl::NewFrame`), иначе композитор растягивает картинку и она не совпадает с курсором. ImGui масштабирует
+  вершины сам через `DisplayFramebufferScale`. `FramePrepareWindowSurface` сверяет extent с framebuffer каждый кадр:
+  масштаб может измениться без события ресайза (перенос окна на другой вывод). На Windows/X11 размеры совпадают.
 - **`Window::Maximize/Minimize/Restore` отложенные** — применяются в `Window::OnUpdate`, `IsWindowMaximized()` сразу
   после вызова возвращает старое значение.
 - **Заголовок окна.** При кастомном заголовке клиент обязан каждый кадр вызывать `Window::SetTitleBarLayout`, добавляя

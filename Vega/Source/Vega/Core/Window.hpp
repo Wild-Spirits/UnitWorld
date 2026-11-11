@@ -63,8 +63,12 @@ namespace Vega
     public:
         virtual ~Window() = default;
 
+        // Logical screen coordinates; on HiDPI (e.g. Wayland fractional scaling) they differ from the
+        // physical pixel size returned by GetFramebufferSize
         virtual uint32_t GetWidth() const = 0;
         virtual uint32_t GetHeight() const = 0;
+        // Physical pixels: swapchains and render targets presented to the window must use this size
+        virtual glm::uvec2 GetFramebufferSize() const = 0;
         virtual glm::dvec2 GetCursorInWindowPosition() const = 0;
         virtual std::string_view GetTitle() const = 0;
         virtual float GetMonitorScale() const = 0;

@@ -43,6 +43,14 @@ namespace Vega
         return { mouseX, mouseY };
     }
 
+    glm::uvec2 GLFWWindow::GetFramebufferSize() const
+    {
+        int width, height;
+        glfwGetFramebufferSize(m_Window, &width, &height);
+
+        return { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+    }
+
     bool GLFWWindow::IsWindowMaximized() const
     {
         int maximized = glfwGetWindowAttrib(m_Window, GLFW_MAXIMIZED);
