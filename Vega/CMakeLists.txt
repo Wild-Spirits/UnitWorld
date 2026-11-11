@@ -211,7 +211,7 @@ FetchContent_MakeAvailable(args)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.92.4-docking
+    GIT_TAG v1.93.0-docking
 )
 FetchContent_MakeAvailable(imgui)
 set(IMGUI_SOURCES 

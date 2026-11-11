@@ -19,8 +19,40 @@
 #endif
 #include <GLFW/glfw3native.h>
 
+#ifdef VEGA_PLATFORM_LINUX
+    #include <cstdlib>
+    #include <cstring>
+#endif
+
 namespace Vega
 {
+
+#ifdef VEGA_PLATFORM_LINUX
+    namespace
+    {
+
+        void LogWindowSystem()
+        {
+            const bool isWaylandBackend = (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND);
+
+            // Session type: XDG_SESSION_TYPE is set by logind, WAYLAND_DISPLAY is a fallback
+            // Wayland session indicator for environments without logind
+            const char* sessionType = std::getenv("XDG_SESSION_TYPE");
+            const bool isWaylandSession = (sessionType != nullptr && std::strcmp(sessionType, "wayland") == 0) ||
+                                          (std::getenv("WAYLAND_DISPLAY") != nullptr);
+
+            if (!isWaylandBackend && isWaylandSession)
+            {
+                VEGA_CORE_INFO("Window system: X11 (XWayland under Wayland session)");
+            }
+            else
+            {
+                VEGA_CORE_INFO("Window system: {}", isWaylandBackend ? "Wayland" : "X11");
+            }
+        }
+
+    }    // namespace
+#endif
 
     bool GlfwGetWindowMonitor(GLFWmonitor** _Monitor, GLFWwindow* _Window);
 
@@ -140,11 +172,21 @@ namespace Vega
 
     bool GLFWWindow::Init()
     {
+#ifdef VEGA_PLATFORM_LINUX
+        // ImGui multi-viewport cannot position secondary windows on Wayland, so X11 is forced
+        // (XWayland when running under a Wayland session)
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+#endif
+
         if (!glfwInit())
         {
             VEGA_CORE_CRITICAL("Failed to initialize GLFW!");
             return false;
         }
+
+#ifdef VEGA_PLATFORM_LINUX
+        LogWindowSystem();
+#endif
 
         switch (m_Data.RendererAPI)
         {

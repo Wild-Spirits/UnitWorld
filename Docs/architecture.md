@@ -53,10 +53,13 @@ if not minimized:
             GuiLayer.EndGuiFrame()
         backend.TmpRendergraphExecute()             # временно, до появления RenderGraph
         backend.FrameCommandListEnd(); FrameSubmit(); FramePresent()
-    GuiLayer.OnExternalViewportsRender()            # окна ImGui multi-viewport
+        GuiLayer.OnExternalViewportsRender()        # окна ImGui multi-viewport, только после GUI-кадра
 window.OnUpdate()                                   # отложенные Maximize/Minimize/Restore, тайтлбар, опрос GLFW
 eventManager.DispatchEvents()
 ```
+
+`OnExternalViewportsRender` вызывается только в кадре с отрисованным GUI: `ImGui::UpdatePlatformWindows` требует
+парного `NewFrame`/`Render` и ассертит, если кадр GUI был пропущен (например, при пересоздании swapchain).
 
 `Window::Maximize/Minimize/Restore` не меняют состояние сразу, а применяются в `Window::OnUpdate`: смена состояния
 синхронно рассылает события ресайза, а вызывается обычно из GUI посреди записи кадра.
@@ -97,10 +100,14 @@ Vulkan-бэкенд пересоздаёт swapchain вместе с depth-бу�
 двойной клик. Каждый кадр клиент передаёт `Window::SetTitleBarLayout`: высоту заголовка и прямоугольники
 интерактивных элементов (меню, кнопки) в координатах окна — всё остальное в пределах высоты перетаскивает окно.
 
+На Linux GLFW принудительно переводится на X11 (`glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11)` в
+`GLFWWindow::Init`): multi-viewport ImGui не умеет размещать окна вне основного окна на Wayland. Под Wayland-сессией
+приложение работает через XWayland; выбранная оконная система выводится в лог при старте (`Window system: …`).
+
 | Платформа | Класс | Как устроено |
 | --- | --- | --- |
 | Windows | `Platform/Windows/Core/WinTitleBar` | Сабкласс оконной процедуры (wide-char API). `WM_NCCALCSIZE` убирает только заголовок и верхнюю рамку: левая, правая и нижняя остаются системными (невидимые рамки ресайза, тень, Snap). Верхний ресайз и caption эмулируются в `WM_NCHITTEST`; у развёрнутого окна отступ по толщине рамки для DPI окна и зазор для автоскрываемой панели задач. |
-| Linux (X11) | `Platform/Linux/Core/LinuxTitleBar` | Окно без декораций; перемещение и ресайз отдаются оконному менеджеру через `_NET_WM_MOVERESIZE`, после чего GLFW досылается синтетический `ButtonRelease`. На Wayland не поддерживается — используются системные декорации (`IsCustomTitleBar() == false`). |
+| Linux (X11) | `Platform/Linux/Core/LinuxTitleBar` | Окно без декораций; перемещение и ресайз отдаются оконному менеджеру через `_NET_WM_MOVERESIZE`, после чего GLFW досылается синтетический `ButtonRelease`. На Wayland не поддерживается — используются системные декорации (`IsCustomTitleBar() == false`), но из-за принудительного X11 (см. выше) этот режим не наступает. |
 | macOS | `Platform/MacOS/Core/MacOSTitleBar.mm` | `NSWindowStyleMaskFullSizeContentView` + прозрачный системный заголовок; «светофоры» остаются родными (`IsTitleBarHasNativeButtons`, клиент оставляет под них `GetTitleBarNativeButtonsWidth`). Перетаскивание — `performWindowDragWithEvent`, ресайз системный. |
 
 `Application::GetIsHasCutsomTitleBar()` возвращает фактическое состояние окна. Если кастомного заголовка нет,

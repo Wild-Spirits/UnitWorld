@@ -134,7 +134,6 @@ namespace Vega
             m_ImGuiImpl->BackupCurrentWindowContext();
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
-            ImGui::RenderPlatformWindowsDefault();
             m_ImGuiImpl->RestoreCurrentWindowContext();
         }
     }

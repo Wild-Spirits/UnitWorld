@@ -156,10 +156,13 @@ namespace Vega
                         m_RendererBackend->FrameCommandListEnd();
                         m_RendererBackend->FrameSubmit();
                         m_RendererBackend->FramePresent();
-                    }
-                    if (m_GuiLayer)
-                    {
-                        m_GuiLayer->OnExternalViewportsRender();
+
+                        // Only after a rendered GUI frame: UpdatePlatformWindows requires a matching
+                        // NewFrame/Render, which is skipped when the surface preparation fails
+                        if (m_GuiLayer)
+                        {
+                            m_GuiLayer->OnExternalViewportsRender();
+                        }
                     }
                 }
             }
