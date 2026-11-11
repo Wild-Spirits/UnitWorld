@@ -7,12 +7,14 @@
     #include "Utils/VulkanUtils.hpp"
     #include "Vega/Utils/Log.hpp"
 
-    // Window system headers must precede the WSI headers: vulkan_xlib.h uses Display/Window without
-    // including Xlib.h itself
+    // Window system headers must precede the WSI headers: vulkan_xlib.h uses Display/Window and
+    // vulkan_xcb.h uses xcb_connection_t without including Xlib.h/xcb.h themselves
     #include <wayland-client.h>
     #include <X11/Xlib.h>
+    #include <xcb/xcb.h>
 
     #include <vulkan/vulkan_wayland.h>
+    #include <vulkan/vulkan_xcb.h>
     #include <vulkan/vulkan_xlib.h>
 
 namespace Vega
@@ -27,7 +29,10 @@ namespace Vega
                 _RequiredExtensions->push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
                 break;
             case WindowSystem::kX11:
+                // The main window surface is created by this plugin via Xlib, while secondary ImGui viewport
+                // surfaces are created by the editor's GLFW backend, which prefers XCB: both are needed
                 _RequiredExtensions->push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+                _RequiredExtensions->push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
                 break;
             default:
                 VEGA_CORE_CRITICAL("Unsupported window system for the Vulkan backend: {}",

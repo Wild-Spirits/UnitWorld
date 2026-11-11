@@ -49,6 +49,12 @@ GPU-ресурсы **освобождаются явно**, деструктор
   `vkCreateXlibSurfaceKHR`) из нативных хэндлов `Window::GetNativeWindowInfo()` — код в `Platform/VulkanPlatform*.cpp`.
   Плагин не использует GLFW: его собственная статическая копия GLFW открыла бы отдельное соединение с оконной
   системой, и поверхность из смеси двух соединений драйвер отвергает (см. [pitfalls](ai/pitfalls.md)).
+  На X11 инстанс включает и `VK_KHR_xlib_surface`, и `VK_KHR_xcb_surface`: поверхности вторичных viewport'ов
+  ImGui создаёт GLFW-бэкенд редактора (`Platform_CreateVkSurface`), а GLFW предпочитает XCB.
+- Multi-viewport ImGui (вынос окон за пределы главного) рендерится встроенными хуками `Renderer_*` бэкенда
+  ImGui 1.93 (`ImGui_ImplVulkan_Init` сам их устанавливает, per-viewport swapchain'ы создаёт через
+  `ImGui_ImplVulkanH_*`); своих хуков плагин не ставит. `VulkanImGuiImpl::Init` передаёт `QueueFamily`
+  (graphics-семейство) — он нужен бэкенду для WSI-проверки и создания поверхностей viewport'ов.
 - Ресурсы на кадр (семафоры, фенсы, staging-буферы, command buffers) — по `VulkanSwapchain::GetMaxFramesInFlight()`.
 - Загрузка в device-local `RenderBuffer` с `_IncludeInFrameWorkload = false` не ждёт очередь: копия идёт через
   временный staging-буфер в отдельном command buffer (`EndAndSubmitSingleUseCommandBuffer`), барьеры упорядочивают её

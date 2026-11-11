@@ -20,7 +20,11 @@
   (`Window::GetNativeWindowInfo` → `Platform/VulkanPlatform*.cpp`), которые принадлежат соединению редактора. Если
   создавать поверхность `glfwCreateWindowSurface` из плагина, драйвер получит `wl_display` плагина вместе с `wl_surface`
   редактора: `vkGetPhysicalDeviceSurfaceFormatsKHR` вернёт 0 форматов (`VK_ERROR_SURFACE_LOST_KHR`), а на Windows это
-  незаметно, т.к. HWND валиден во всём процессе.
+  незаметно, т.к. HWND валиден во всём процессе. Исключение — поверхности вторичных viewport'ов ImGui: их создаёт
+  GLFW-бэкенд редактора (`Platform_CreateVkSurface`) с инстансом плагина, это корректно (соединение редактора).
+  Но инстанс обязан включать и `VK_KHR_xlib_surface`, и `VK_KHR_xcb_surface` (GLFW предпочитает XCB): иначе
+  `VK_ERROR_EXTENSION_NOT_PRESENT`, и окно viewport'а молча остаётся чёрным (`ImGui_ImplVulkan_CreateWindow`
+  выходит без `RendererUserData`).
 - **Путь к плагину.** DLL ищется в `BIN_FOLDER/VegaPlugins/VegaVulkanRenderer/`; с многоконфигурационным генератором
   (Visual Studio) путь не совпадает.
 

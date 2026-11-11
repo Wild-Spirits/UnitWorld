@@ -52,8 +52,9 @@ namespace Vega
             .Instance = context.VkInstance,
             .PhysicalDevice = vkDeviceWrapper.GetPhysicalDevice(),
             .Device = vkDeviceWrapper.GetLogicalDevice(),
-            // .QueueFamily =
-            // static_cast<uint32_t>(vkDeviceWrapper.GetPhysicalDeviceQueueFamilyInfo().GraphicsQueueIndex),
+            // Used by the backend's multi-viewport support: WSI support check and queue lookup for
+            // per-viewport swapchain creation
+            .QueueFamily = static_cast<uint32_t>(vkDeviceWrapper.GetPhysicalDeviceQueueFamilyInfo().GraphicsQueueIndex),
             .Queue = vkDeviceWrapper.GetGraphicsQueue(),
             .DescriptorPool = rendererBackend->GetImGuiDescriptorPool(),
             .MinImageCount = swapchainSupportInfo.Capabilities.minImageCount,
@@ -110,7 +111,8 @@ namespace Vega
     {
         VulkanRendererBackend* rendererBackend = VulkanRendererBackend::GetVkRendererBackend();
 
-        // NOTE: Also flushes the deletion queue: it may hold removals of ImGui textures, which require the ImGui backend
+        // NOTE: Also flushes the deletion queue: it may hold removals of ImGui textures, which require the ImGui
+        // backend
         rendererBackend->WaitIdle();
 
         ImGui_ImplVulkan_Shutdown();
