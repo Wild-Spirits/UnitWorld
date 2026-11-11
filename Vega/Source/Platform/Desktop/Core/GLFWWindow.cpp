@@ -9,6 +9,16 @@
 
 #include <GLFW/glfw3.h>
 
+// Native handles for GetNativeWindowInfo; no Vulkan headers are needed here, the renderer plugin creates
+// its surfaces from these handles itself
+#ifdef VEGA_PLATFORM_WINDOWS
+    #define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(VEGA_PLATFORM_LINUX)
+    #define GLFW_EXPOSE_NATIVE_WAYLAND
+    #define GLFW_EXPOSE_NATIVE_X11
+#endif
+#include <GLFW/glfw3native.h>
+
 namespace Vega
 {
 
@@ -37,6 +47,37 @@ namespace Vega
     {
         int maximized = glfwGetWindowAttrib(m_Window, GLFW_MAXIMIZED);
         return maximized == GLFW_TRUE;
+    }
+
+    NativeWindowInfo GLFWWindow::GetNativeWindowInfo() const
+    {
+        NativeWindowInfo info;
+
+#ifdef VEGA_PLATFORM_WINDOWS
+        info.System = WindowSystem::kWin32;
+        info.Window = glfwGetWin32Window(m_Window);
+        info.Display = GetModuleHandle(nullptr);
+#elif defined(VEGA_PLATFORM_LINUX)
+        // GLFW 3.4 picks the window system at runtime, so the handles are queried for the active one
+        switch (glfwGetPlatform())
+        {
+            case GLFW_PLATFORM_WAYLAND:
+                info.System = WindowSystem::kWayland;
+                info.Window = glfwGetWaylandWindow(m_Window);
+                info.Display = glfwGetWaylandDisplay();
+                break;
+            case GLFW_PLATFORM_X11:
+                info.System = WindowSystem::kX11;
+                info.Window = reinterpret_cast<void*>(glfwGetX11Window(m_Window));
+                info.Display = glfwGetX11Display();
+                break;
+            default:
+                VEGA_CORE_CRITICAL("Unsupported GLFW platform: {}", glfwGetPlatform());
+                break;
+        }
+#endif
+
+        return info;
     }
 
     // Usually called from the GUI while the frame is being recorded: the state change synchronously sends resize

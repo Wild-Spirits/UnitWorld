@@ -14,6 +14,13 @@
   `Application::s_Instance`, логгеры и контекст ImGui. Они синхронизируются через `SetPluginGlobals(PluginData*)` и
   `ImGui::SetCurrentContext`/`SetAllocatorFunctions` в `VulkanImGuiImpl.cpp`. Новый глобальный/статический объект,
   нужный и в Vega, и в плагине, надо так же передавать через `PluginData`.
+- **Две копии GLFW: соединение с оконной системой не шарится.** `Editor` и `VegaVulkanRenderer` линкуют GLFW статически
+  каждый своей копией, поэтому GLFW-состояние (в т.ч. `wl_display`/X-соединение) у них разное. Плагин не вызывает GLFW
+  вообще: Vulkan-поверхность, WSI-расширения и presentation support делаются через нативные хэндлы окна
+  (`Window::GetNativeWindowInfo` → `Platform/VulkanPlatform*.cpp`), которые принадлежат соединению редактора. Если
+  создавать поверхность `glfwCreateWindowSurface` из плагина, драйвер получит `wl_display` плагина вместе с `wl_surface`
+  редактора: `vkGetPhysicalDeviceSurfaceFormatsKHR` вернёт 0 форматов (`VK_ERROR_SURFACE_LOST_KHR`), а на Windows это
+  незаметно, т.к. HWND валиден во всём процессе.
 - **Путь к плагину.** DLL ищется в `BIN_FOLDER/VegaPlugins/VegaVulkanRenderer/`; с многоконфигурационным генератором
   (Visual Studio) путь не совпадает.
 

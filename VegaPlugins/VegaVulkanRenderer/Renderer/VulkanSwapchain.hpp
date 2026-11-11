@@ -42,15 +42,16 @@ namespace Vega
     private:
         VulkanSwapchainSupportInfo m_SwapchainSupportInfo;
 
-        VkSurfaceFormatKHR m_ImageFormat;
+        VkSurfaceFormatKHR m_ImageFormat = {};
 
-        RendererBackendConfig::Flags m_RendererFlags;
+        RendererBackendConfig::Flags m_RendererFlags = 0;
 
-        uint32_t m_MaxFramesInFlight;
+        // Must stay 0 until Create succeeds: OnWindowCreate sizes per-frame containers by this value
+        uint32_t m_MaxFramesInFlight = 0;
 
         VkExtent2D m_Extent = { 0, 0 };
 
-        VkSwapchainKHR m_VkSwapchain;
+        VkSwapchainKHR m_VkSwapchain = nullptr;
 
         std::vector<VkImage> m_SwapchainImages;
 

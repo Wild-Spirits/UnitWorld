@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Vega/Core/Window.hpp"
 #include "VulkanBase.hpp"
 
 namespace Vega
@@ -23,7 +24,7 @@ namespace Vega
     class VulkanDeviceWrapper
     {
     public:
-        bool Init(VulkanContext& _Context);
+        bool Init(VulkanContext& _Context, const NativeWindowInfo& _WindowInfo);
         void Shutdown(const VulkanContext& _Context);
 
         VulkanSwapchainSupportInfo GetSwapchainSupportInfo(VkSurfaceKHR _Surface) const;
@@ -51,7 +52,7 @@ namespace Vega
         inline const VulkanDeviceSupportFlags GetSupportFlags() const { return m_SupportFlags; }
 
     protected:
-        bool SelectPhysicalDevice(VkInstance _VkInstance);
+        bool SelectPhysicalDevice(VkInstance _VkInstance, const NativeWindowInfo& _WindowInfo);
 
     protected:
         uint32_t m_ApiMajor;

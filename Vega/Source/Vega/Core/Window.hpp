@@ -37,6 +37,27 @@ namespace Vega
         std::vector<ItemRect> InteractiveItems;
     };
 
+    // Window system the window was created on: it defines how the native handles below are interpreted
+    enum class WindowSystem : uint8_t
+    {
+        kUnknown = 0,
+        kWin32,
+        kWayland,
+        kX11,
+    };
+
+    // Platform handles of the window for renderer backends that create their own window system surfaces.
+    // The handles belong to the window system connection of this process: a backend must not mix them with
+    // a connection of its own (e.g. a separate GLFW copy inside a plugin opens a different wl_display)
+    struct NativeWindowInfo
+    {
+        WindowSystem System = WindowSystem::kUnknown;
+        // HWND (Win32), wl_surface* (Wayland), Window XID cast to void* (X11)
+        void* Window = nullptr;
+        // HINSTANCE (Win32), wl_display* (Wayland), Display* (X11)
+        void* Display = nullptr;
+    };
+
     class Window
     {
     public:
@@ -70,7 +91,10 @@ namespace Vega
 
         virtual void SetEventManager(Ref<EventManager> _EventManager) = 0;
 
+        // Platform window object (GLFWwindow* on desktop); for renderer backends use GetNativeWindowInfo
         virtual void* GetNativeWindow() const = 0;
+
+        virtual NativeWindowInfo GetNativeWindowInfo() const = 0;
 
         static Ref<Window> Create(const WindowProps& _Props = WindowProps());
     };

@@ -15,10 +15,6 @@
 #include "VulkanShader.hpp"
 #include "VulkanTexture.hpp"
 
-#ifdef VEGA_PLATFORM_DESKTOP
-    #include "GLFW/glfw3.h"
-#endif
-
 #include <memory>
 #include <shaderc/shaderc.h>
 
@@ -36,12 +32,11 @@ namespace Vega
     {
         VEGA_CORE_TRACE("Initialize VulkanRendererBackend");
 
-        // NOTE: is it hack?
-#ifdef VEGA_PLATFORM_DESKTOP
-        glfwInit();
-#endif
-
         m_VkContext.VkAllocator = nullptr;
+
+        // The window is created before the backend (Application constructor): its native handles select the
+        // window system integration for this instance
+        const NativeWindowInfo windowInfo = Application::Get().GetWindow()->GetNativeWindowInfo();
 
         uint32_t vkApiVersion = 0;
         vkEnumerateInstanceVersion(&vkApiVersion);
@@ -61,7 +56,7 @@ namespace Vega
         };
 
         std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME };
-        VulkanGetPlatformRequiredExtensionNames(&instanceExtensions);
+        VulkanGetPlatformRequiredExtensionNames(windowInfo.System, &instanceExtensions);
 #ifdef _DEBUG
         instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
@@ -149,7 +144,7 @@ namespace Vega
         }
 #endif
 
-        if (!m_VkDeviceWrapper.Init(m_VkContext))
+        if (!m_VkDeviceWrapper.Init(m_VkContext, windowInfo))
         {
             VEGA_CORE_CRITICAL("Failed to initialize VulkanDeviceWrapper");
             return false;
@@ -195,11 +190,6 @@ namespace Vega
 
         VEGA_CORE_TRACE("Destroying Vulkan instance...");
         vkDestroyInstance(m_VkContext.VkInstance, m_VkContext.VkAllocator);
-
-        // NOTE: is it hack?
-#ifdef VEGA_PLATFORM_DESKTOP
-        glfwTerminate();
-#endif
     }
 
     // TODO: Add per window resources to be able to create multiple windows (not imgui)
@@ -210,25 +200,23 @@ namespace Vega
 
         VEGA_CORE_TRACE("Creating Vulkan surface for window {}", _Window->GetTitle());
 
-        // TODO: move to Platform code
-#ifdef VEGA_PLATFORM_DESKTOP
-        VkResult surfaceResult =
-            glfwCreateWindowSurface(m_VkContext.VkInstance, static_cast<GLFWwindow*>(_Window->GetNativeWindow()),
-                                    m_VkContext.VkAllocator, &m_VkSurface);
-
-        if (surfaceResult != VK_SUCCESS)
+        // Created from the engine's native window handles: they belong to the window system connection that
+        // owns the window, while a GLFW copy inside this plugin would open its own one (see NativeWindowInfo)
+        if (!VulkanCreateWindowSurface(m_VkContext.VkInstance, _Window->GetNativeWindowInfo(), &m_VkSurface))
         {
-            VEGA_CORE_CRITICAL("Failed to create platform surface for window {} with error: {}", windowTitle,
-                               VulkanResultString(surfaceResult, true));
+            VEGA_CORE_CRITICAL("Failed to create platform surface for window {}", windowTitle);
             VEGA_CORE_ASSERT(false, "Failed to create platform surface!");
             return false;
         }
-#endif
 
         VEGA_CORE_TRACE("Vulkan surface created for window {}", windowTitle);
 
         // TODO: Add m_RendererFlags to upper level of call
-        m_VkSwapchain.Create(m_VkContext, m_VkDeviceWrapper, m_RendererFlags, m_VkSurface);
+        if (!m_VkSwapchain.Create(m_VkContext, m_VkDeviceWrapper, m_RendererFlags, m_VkSurface))
+        {
+            VEGA_CORE_CRITICAL("Failed to create Vulkan swapchain for window {}", windowTitle);
+            return false;
+        }
 
         // May need to move this code to the Window and/or store this data in the Window class
         {

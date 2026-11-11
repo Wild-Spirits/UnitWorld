@@ -5,6 +5,7 @@
 
 #include <nfd.hpp>
 
+#include <cstdlib>
 #include <filesystem>
 
 namespace Vega
@@ -41,8 +42,14 @@ namespace Vega
         RendererBackend::CreateReturnValue rendererBackend = RendererBackend::Create(_Props.RendererAPI);
         m_RendererBackendPlugin = rendererBackend.Plugin;
         m_RendererBackend = rendererBackend.Backend;
-        m_RendererBackend->Init();
-        m_RendererBackend->OnWindowCreate(m_Window);
+
+        // Without a swapchain the run loop would dereference empty per-frame containers and the destructor
+        // would shut down a half-initialized backend: failing fast is the only safe path here
+        if (!m_RendererBackend || !m_RendererBackend->Init() || !m_RendererBackend->OnWindowCreate(m_Window))
+        {
+            VEGA_CORE_CRITICAL("Renderer backend initialization failed; the application cannot continue.");
+            std::exit(EXIT_FAILURE);
+        }
 
         m_EventManager->Subscribe(EventHandler<WindowResizeEvent>(VEGA_BIND_EVENT_FN(OnWindowResize)));
         m_EventManager->Subscribe(EventHandler<WindowCloseEvent>(VEGA_BIND_EVENT_FN(OnWindowClose)));

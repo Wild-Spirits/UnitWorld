@@ -1,11 +1,8 @@
 #include "VulkanDeviceWrapper.hpp"
 
 #include "Platform/Platform.hpp"
+#include "Platform/VulkanPlatform.hpp"
 #include "Utils/VulkanUtils.hpp"
-
-#ifdef VEGA_PLATFORM_DESKTOP
-    #include "GLFW/glfw3.h"
-#endif
 
 #include <array>
 
@@ -45,18 +42,16 @@ namespace Vega
         bool SupportsDeviceLocalHostVisible;
     };
 
-    static bool VulkanPlatformPresentationSupport(VkInstance _VkInstance, VkPhysicalDevice _PhysicalDevice,
-                                                  uint32_t _QueueQueueIndex);
-
     static PhysicalDeviceMeetsRequirementsResult PhysicalDeviceMeetsRequirements(
         VkInstance _VkInstance, VkPhysicalDevice _PhysicalDevice, const VkPhysicalDeviceProperties* properties,
-        const VkPhysicalDeviceFeatures* features, const VulkanPhysicalDeviceRequirements& requirements);
+        const VkPhysicalDeviceFeatures* features, const VulkanPhysicalDeviceRequirements& requirements,
+        const NativeWindowInfo& _WindowInfo);
 
-    bool VulkanDeviceWrapper::Init(VulkanContext& _Context)
+    bool VulkanDeviceWrapper::Init(VulkanContext& _Context, const NativeWindowInfo& _WindowInfo)
     {
         using namespace std::literals;
 
-        if (!SelectPhysicalDevice(_Context.VkInstance))
+        if (!SelectPhysicalDevice(_Context.VkInstance, _WindowInfo))
         {
             return false;
         }
@@ -387,7 +382,7 @@ namespace Vega
         return 0;
     }
 
-    bool VulkanDeviceWrapper::SelectPhysicalDevice(VkInstance _VkInstance)
+    bool VulkanDeviceWrapper::SelectPhysicalDevice(VkInstance _VkInstance, const NativeWindowInfo& _WindowInfo)
     {
         uint32_t physicalDeviceCount = 0;
         VK_CHECK(vkEnumeratePhysicalDevices(_VkInstance, &physicalDeviceCount, nullptr));
@@ -460,7 +455,8 @@ namespace Vega
             }
 
             PhysicalDeviceMeetsRequirementsResult physicalDeviceMeetsRequirementsResult =
-                PhysicalDeviceMeetsRequirements(_VkInstance, physicalDevices[i], &properties, &features, requirements);
+                PhysicalDeviceMeetsRequirements(_VkInstance, physicalDevices[i], &properties, &features, requirements,
+                                                _WindowInfo);
 
             if (physicalDeviceMeetsRequirementsResult.IsMeetRequirements)
             {
@@ -548,7 +544,8 @@ namespace Vega
 
     PhysicalDeviceMeetsRequirementsResult PhysicalDeviceMeetsRequirements(
         VkInstance _VkInstance, VkPhysicalDevice _PhysicalDevice, const VkPhysicalDeviceProperties* properties,
-        const VkPhysicalDeviceFeatures* features, const VulkanPhysicalDeviceRequirements& requirements)
+        const VkPhysicalDeviceFeatures* features, const VulkanPhysicalDeviceRequirements& requirements,
+        const NativeWindowInfo& _WindowInfo)
     {
         if (requirements.DiscreteGpu)
         {
@@ -582,7 +579,7 @@ namespace Vega
                 outQueueInfo.GraphicsQueueIndex = i;
                 ++currentTransferScore;
 
-                bool supportsPresent = VulkanPlatformPresentationSupport(_VkInstance, _PhysicalDevice, i);
+                bool supportsPresent = VulkanPlatformPresentationSupport(_VkInstance, _PhysicalDevice, i, _WindowInfo);
                 if (supportsPresent)
                 {
                     outQueueInfo.PresentQueueIndex = i;
@@ -615,7 +612,7 @@ namespace Vega
         {
             for (uint32_t i = 0; i < queueFamilyCount; ++i)
             {
-                bool supportsPresent = VulkanPlatformPresentationSupport(_VkInstance, _PhysicalDevice, i);
+                bool supportsPresent = VulkanPlatformPresentationSupport(_VkInstance, _PhysicalDevice, i, _WindowInfo);
                 if (supportsPresent)
                 {
                     outQueueInfo.PresentQueueIndex = i;
@@ -685,15 +682,6 @@ namespace Vega
         }
 
         return { false };
-    }
-
-    bool VulkanPlatformPresentationSupport(VkInstance _VkInstance, VkPhysicalDevice _PhysicalDevice,
-                                           uint32_t _QueueQueueIndex)
-    {
-#ifdef VEGA_PLATFORM_DESKTOP
-        return glfwGetPhysicalDevicePresentationSupport(_VkInstance, _PhysicalDevice, _QueueQueueIndex);
-#endif
-        return false;
     }
 
 }    // namespace Vega

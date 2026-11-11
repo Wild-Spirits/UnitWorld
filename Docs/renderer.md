@@ -45,6 +45,10 @@ GPU-ресурсы **освобождаются явно**, деструктор
   внутри DLL), затем `CreateRendererBackend(Ref<RendererBackend>*)`. Обе функции объявлены `extern "C"` в
   `VegaVulkanPlugin.hpp` с макросом экспорта `VEGA_VULKAN_RENDERER_API`.
 - Использует **dynamic rendering** (`vkCmdBeginRendering`), без `VkRenderPass`.
+- Поверхность окна создаётся через WSI (`vkCreateWin32SurfaceKHR` / `vkCreateWaylandSurfaceKHR` /
+  `vkCreateXlibSurfaceKHR`) из нативных хэндлов `Window::GetNativeWindowInfo()` — код в `Platform/VulkanPlatform*.cpp`.
+  Плагин не использует GLFW: его собственная статическая копия GLFW открыла бы отдельное соединение с оконной
+  системой, и поверхность из смеси двух соединений драйвер отвергает (см. [pitfalls](ai/pitfalls.md)).
 - Ресурсы на кадр (семафоры, фенсы, staging-буферы, command buffers) — по `VulkanSwapchain::GetMaxFramesInFlight()`.
 - Загрузка в device-local `RenderBuffer` с `_IncludeInFrameWorkload = false` не ждёт очередь: копия идёт через
   временный staging-буфер в отдельном command buffer (`EndAndSubmitSingleUseCommandBuffer`), барьеры упорядочивают её

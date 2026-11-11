@@ -54,6 +54,8 @@ namespace Vega
 
         virtual void* GetNativeWindow() const override { return m_Window; }
 
+        virtual NativeWindowInfo GetNativeWindowInfo() const override;
+
     protected:
         bool Init();
         void SetCallbacks();
