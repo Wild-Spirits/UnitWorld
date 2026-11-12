@@ -44,8 +44,8 @@ Include-пути: корнем служит `Vega/Source`, поэтому вкл
 timestep = Time::GetTime() - lastFrameTime
 for layer: OnUpdate(timestep)
 if not minimized:
-    if resizing: backend.OnResize(); backend.FramePrepareWindowSurface()     # кадр пропускается
-    elif backend.FramePrepareWindowSurface():
+    if resizing: backend.OnResize()                       # флаг пересоздания swapchain
+    if backend.FramePrepareWindowSurface():               # пересоздаёт swapchain при необходимости, кадр рендерится сразу
         backend.FrameCommandListBegin()
         for layer: OnRender()                       # запись команд отрисовки
         if GuiLayer.BeginGuiFrame():
@@ -64,9 +64,12 @@ eventManager.DispatchEvents()
 `Window::Maximize/Minimize/Restore` не меняют состояние сразу, а применяются в `Window::OnUpdate`: смена состояния
 синхронно рассылает события ресайза, а вызывается обычно из GUI посреди записи кадра.
 
-Vulkan-бэкенд пересоздаёт swapchain вместе с depth-буферами и command buffer-ами только в начале кадра
-(`FramePrepareWindowSurface` при `m_IsNeedRecreateSwapchain`); `VK_ERROR_OUT_OF_DATE_KHR`/`VK_SUBOPTIMAL_KHR` лишь
-выставляют этот флаг. Размер depth-буферов берётся из extent swapchain, а не из размера окна.
+Vulkan-бэкенд пересоздаёт swapchain вместе с depth-буферами и command buffer-ами в начале кадра
+(`FramePrepareWindowSurface` при `m_IsNeedRecreateSwapchain`) и сразу рендерит кадр: пропуск кадра при ресайзе
+вызывал лаг содержимого за рамкой окна. Флаг выставляют `VK_ERROR_OUT_OF_DATE_KHR` (acquire/present) или реальная
+смена размера framebuffer; `VK_SUBOPTIMAL_KHR` на present терпится — пересоздание на каждый suboptimal present
+давало «шторм» пересозданий во время интерактивного ресайза. Размер depth-буферов берётся из extent swapchain,
+а не из размера окна.
 
 `Time::GetTime()` (`Vega/Core/Time.hpp`) — монотонное время в секундах на `std::chrono::steady_clock` с
 неопределённым началом отсчёта, имеет смысл только разность. `Timestep` — длительность кадра в секундах (`float`),

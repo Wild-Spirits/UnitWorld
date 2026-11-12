@@ -111,9 +111,7 @@ namespace Vega
                 info.Window = reinterpret_cast<void*>(glfwGetX11Window(m_Window));
                 info.Display = glfwGetX11Display();
                 break;
-            default:
-                VEGA_CORE_CRITICAL("Unsupported GLFW platform: {}", glfwGetPlatform());
-                break;
+            default: VEGA_CORE_CRITICAL("Unsupported GLFW platform: {}", glfwGetPlatform()); break;
         }
 #endif
 
@@ -214,6 +212,7 @@ namespace Vega
         }
         glfwGetMonitorContentScale(nowMonitor, NULL, &m_Data.MonitorScale);
         glfwSetWindowUserPointer(m_Window, &m_Data);
+        glfwSetWindowSizeLimits(m_Window, 800, 600, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
         if (m_Data.IsUseCustomTitlebar)
         {

@@ -127,42 +127,41 @@ namespace Vega
                 if (m_Resizing)
                 {
                     m_RendererBackend->OnResize();
-                    m_RendererBackend->FramePrepareWindowSurface();
                     m_Resizing = false;
                 }
-                else
-                {
-                    if (m_RendererBackend->FramePrepareWindowSurface())
-                    {
-                        m_RendererBackend->FrameCommandListBegin();
 
+                // The swapchain is recreated inside FramePrepareWindowSurface when needed and the frame is
+                // rendered right away: skipping it made the content lag behind during interactive resize
+                if (m_RendererBackend->FramePrepareWindowSurface())
+                {
+                    m_RendererBackend->FrameCommandListBegin();
+
+                    for (Ref<Layer> layer : m_LayerStack)
+                    {
+                        layer->OnRender();
+                    }
+
+                    if (m_GuiLayer && m_GuiLayer->BeginGuiFrame())
+                    {
                         for (Ref<Layer> layer : m_LayerStack)
                         {
-                            layer->OnRender();
+                            layer->OnGuiRender();
                         }
+                        m_GuiLayer->EndGuiFrame();
+                    }
 
-                        if (m_GuiLayer && m_GuiLayer->BeginGuiFrame())
-                        {
-                            for (Ref<Layer> layer : m_LayerStack)
-                            {
-                                layer->OnGuiRender();
-                            }
-                            m_GuiLayer->EndGuiFrame();
-                        }
+                    // TODO: Use rendergraph here
+                    m_RendererBackend->TmpRendergraphExecute();
 
-                        // TODO: Use rendergraph here
-                        m_RendererBackend->TmpRendergraphExecute();
+                    m_RendererBackend->FrameCommandListEnd();
+                    m_RendererBackend->FrameSubmit();
+                    m_RendererBackend->FramePresent();
 
-                        m_RendererBackend->FrameCommandListEnd();
-                        m_RendererBackend->FrameSubmit();
-                        m_RendererBackend->FramePresent();
-
-                        // Only after a rendered GUI frame: UpdatePlatformWindows requires a matching
-                        // NewFrame/Render, which is skipped when the surface preparation fails
-                        if (m_GuiLayer)
-                        {
-                            m_GuiLayer->OnExternalViewportsRender();
-                        }
+                    // Only after a rendered GUI frame: UpdatePlatformWindows requires a matching
+                    // NewFrame/Render, which is skipped when the surface preparation fails
+                    if (m_GuiLayer)
+                    {
+                        m_GuiLayer->OnExternalViewportsRender();
                     }
                 }
             }

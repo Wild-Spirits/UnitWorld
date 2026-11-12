@@ -358,22 +358,15 @@ namespace Vega
         if (m_IsNeedRecreateSwapchain)
         {
             VEGA_CORE_TRACE("m_IsNeedRecreateSwapchain");
-            VkResult deviceIdleResult = vkDeviceWaitIdle(logicalDevice);
-            if (!VulkanResultIsSuccess(deviceIdleResult))
-            {
-                VEGA_CORE_CRITICAL("FramePrepareWindowSurface vkDeviceWaitIdle failed: {}",
-                                   VulkanResultString(deviceIdleResult, true));
-                VEGA_CORE_ASSERT(false, "FramePrepareWindowSurface vkDeviceWaitIdle failed!");
-                return false;
-            }
-            FlushDeletionQueue(UINT64_MAX);
-
+            // RecreateSwapchain waits for the device idle itself before freeing the old resources
             if (!RecreateSwapchain())
             {
                 VEGA_CORE_TRACE("Failed to recreate swapchain!");
                 // VEGA_CORE_ASSERT(false, "Failed to recreate swapchain!");
                 return false;
             }
+            // The device is idle after the recreation: everything queued for deletion is safe to free
+            FlushDeletionQueue(UINT64_MAX);
             // TODO: Recreate depth buffer texture
 
             if (m_VkSwapchain.GetImagesCount() != m_DepthBufferTextures.size())
@@ -393,7 +386,8 @@ namespace Vega
             }
 
             m_IsNeedRecreateSwapchain = false;
-            return false;
+            // Fall through to acquire from the new swapchain and render this frame: skipping the frame here
+            // made the content lag behind the window frame during interactive resize
         }
 
         VkResult inFlightResult =
@@ -508,16 +502,19 @@ namespace Vega
 
         VkResult result = vkQueuePresentKHR(m_VkDeviceWrapper.GetPresentQueue(), &presentInfo);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
         {
             // Full recreation on the next frame, see FramePrepareWindowSurface
-            VEGA_CORE_TRACE("Swapchain is out of date or suboptimal on present, recreating");
+            VEGA_CORE_TRACE("Swapchain is out of date on present, recreating");
             m_IsNeedRecreateSwapchain = true;
         }
-        else if (result != VK_SUCCESS)
+        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
         {
             VEGA_CORE_ASSERT(false, "Failed to present swap chain image!");
         }
+        // SUBOPTIMAL is tolerated: the present succeeded, and a real size change is caught by the
+        // framebuffer/extent comparison in FramePrepareWindowSurface. Recreating on every suboptimal present
+        // caused a recreation storm during interactive resize.
 
         m_CurrentFrame = (m_CurrentFrame + 1) % m_VkSwapchain.GetMaxFramesInFlight();
         ++m_FrameNumber;
