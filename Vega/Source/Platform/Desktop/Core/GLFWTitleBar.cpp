@@ -18,18 +18,18 @@ namespace Vega
     // Base resize border width, scaled by the window content scale
     constexpr float kResizeBorderWidth = 6.0f;
 
-    Scope<GLFWTitleBar> GLFWTitleBar::Create(GLFWwindow* _Window)
+    Scope<GLFWTitleBar> GLFWTitleBar::Create(GLFWwindow* _Window, TitleBarMode _Mode)
     {
 #if defined(VEGA_PLATFORM_WINDOWS_DESKTOP)
-        return CreateScope<WinTitleBar>(_Window);
+        return CreateScope<WinTitleBar>(_Window, _Mode);
 #elif defined(VEGA_PLATFORM_LINUX_DESKTOP)
         if (LinuxTitleBar::IsSupported())
         {
-            return CreateScope<LinuxTitleBar>(_Window);
+            return CreateScope<LinuxTitleBar>(_Window, _Mode);
         }
         return nullptr;
 #elif defined(VEGA_PLATFORM_MACOS_DESKTOP)
-        return CreateScope<MacOSTitleBar>(_Window);
+        return CreateScope<MacOSTitleBar>(_Window, _Mode);
 #else
         return nullptr;
 #endif

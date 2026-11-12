@@ -34,7 +34,7 @@ namespace Vega
 
     }    // namespace
 
-    MacOSTitleBar::MacOSTitleBar(GLFWwindow* _Window) : GLFWTitleBar(_Window)
+    MacOSTitleBar::MacOSTitleBar(GLFWwindow* _Window, TitleBarMode _Mode) : GLFWTitleBar(_Window, _Mode)
     {
         NSWindow* nsWindow = GetNSWindow(_Window);
         nsWindow.styleMask |= NSWindowStyleMaskFullSizeContentView;
@@ -84,6 +84,12 @@ namespace Vega
     void MacOSTitleBar::OnMouseButton(int _Button, int _Action)
     {
         if (_Button != GLFW_MOUSE_BUTTON_LEFT || _Action != GLFW_PRESS)
+        {
+            return;
+        }
+
+        // Secondary viewports: the caption drag belongs to ImGui (docking), resizing is native
+        if (IsResizeOnly())
         {
             return;
         }

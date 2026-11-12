@@ -4,6 +4,7 @@
 #include "Vega/Core/Base.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
+#include "Vega/ImGui/ImGuiViewportTitleBar.hpp"
 #include "Vega/Managers/MaterialManager.hpp"
 #include "Vega/Managers/StaticMeshManager.hpp"
 #include "Vega/Managers/TextureManager.hpp"
@@ -80,6 +81,18 @@ namespace Vega
     }
 
     constexpr float kMainMenuFramePadding = 16.0f;
+
+    namespace
+    {
+
+        // Detached panels are resized by the window manager (viewport title bar) and must not collapse on
+        // caption double click (it maximizes instead)
+        ImGuiWindowFlags GetPanelFlags(bool _IsDetached)
+        {
+            return _IsDetached ? (ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse) : ImGuiWindowFlags_None;
+        }
+
+    }    // namespace
 
     void EditorLayer::OnAttach(Ref<EventManager> _EventManager)
     {
@@ -298,43 +311,68 @@ namespace Vega
         //     ImGui::EndMainMenuBar();
         // }
 
-        if (ImGui::Begin("Scene"))
+        if (m_IsDrawScenePanel)
         {
-            m_SceneHierarchyPanel.OnImGuiRender(m_ActiveScene);
-        }
-        ImGui::End();
-
-        if (ImGui::Begin("Viewport", 0))
-        {
-            DrawGuiViewport();
-        }
-        ImGui::End();
-
-        if (ImGui::Begin("Assets", 0))
-        {
-            ImGui::Text("Hello, world!");
-            ImGui::Text("Привет Мир!");
-
-            if (ImGui::Button(ICON_FA_FILE_WORD ICON_FA_BRIDGE ICON_FA_LINUX "Button"))
+            const bool isOpen = ImGui::Begin("Scene", nullptr, GetPanelFlags(m_IsScenePanelDetached));
+            DrawViewportTitleBarButtons(&m_IsDrawScenePanel, &m_IsScenePanelDetached);
+            if (isOpen)
             {
+                m_SceneHierarchyPanel.OnImGuiRender(m_ActiveScene);
             }
-
-            static char testText[256] = "";
-            ImGui::InputText("TestText", testText, 256);
+            ImGui::End();
         }
-        ImGui::End();
 
-        if (ImGui::Begin("Props"))
+        if (m_IsDrawViewportPanel)
         {
-            m_EntityPropsPanel.OnImGuiRender(m_SceneHierarchyPanel.GetSelectedEntity());
+            const bool isOpen = ImGui::Begin("Viewport", nullptr, GetPanelFlags(m_IsViewportPanelDetached));
+            DrawViewportTitleBarButtons(&m_IsDrawViewportPanel, &m_IsViewportPanelDetached);
+            if (isOpen)
+            {
+                DrawGuiViewport();
+            }
+            ImGui::End();
         }
-        ImGui::End();
 
-        if (ImGui::Begin("Editor Camera"))
+        if (m_IsDrawAssetsPanel)
         {
-            m_EditorCamera.DrawGuiSettings();
+            const bool isOpen = ImGui::Begin("Assets", nullptr, GetPanelFlags(m_IsAssetsPanelDetached));
+            DrawViewportTitleBarButtons(&m_IsDrawAssetsPanel, &m_IsAssetsPanelDetached);
+            if (isOpen)
+            {
+                ImGui::Text("Hello, world!");
+                ImGui::Text("Привет Мир!");
+
+                if (ImGui::Button(ICON_FA_FILE_WORD ICON_FA_BRIDGE ICON_FA_LINUX "Button"))
+                {
+                }
+
+                static char testText[256] = "";
+                ImGui::InputText("TestText", testText, 256);
+            }
+            ImGui::End();
         }
-        ImGui::End();
+
+        if (m_IsDrawPropsPanel)
+        {
+            const bool isOpen = ImGui::Begin("Props", nullptr, GetPanelFlags(m_IsPropsPanelDetached));
+            DrawViewportTitleBarButtons(&m_IsDrawPropsPanel, &m_IsPropsPanelDetached);
+            if (isOpen)
+            {
+                m_EntityPropsPanel.OnImGuiRender(m_SceneHierarchyPanel.GetSelectedEntity());
+            }
+            ImGui::End();
+        }
+
+        if (m_IsDrawEditorCameraPanel)
+        {
+            const bool isOpen = ImGui::Begin("Editor Camera", nullptr, GetPanelFlags(m_IsEditorCameraPanelDetached));
+            DrawViewportTitleBarButtons(&m_IsDrawEditorCameraPanel, &m_IsEditorCameraPanelDetached);
+            if (isOpen)
+            {
+                m_EditorCamera.DrawGuiSettings();
+            }
+            ImGui::End();
+        }
 
         if (m_IsDrawImGuiDemoWindow)
         {
@@ -520,6 +558,14 @@ namespace Vega
                     // }
 
                     // ImGui::Separator();
+
+                    ImGui::MenuItem("Scene", nullptr, &m_IsDrawScenePanel);
+                    ImGui::MenuItem("Viewport", nullptr, &m_IsDrawViewportPanel);
+                    ImGui::MenuItem("Assets", nullptr, &m_IsDrawAssetsPanel);
+                    ImGui::MenuItem("Props", nullptr, &m_IsDrawPropsPanel);
+                    ImGui::MenuItem("Editor Camera", nullptr, &m_IsDrawEditorCameraPanel);
+
+                    ImGui::Separator();
 
                     if (ImGui::MenuItem("ImGui Demo", nullptr, m_IsDrawImGuiDemoWindow))
                     {

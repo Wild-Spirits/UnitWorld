@@ -11,7 +11,7 @@
 | `Vega/Source/Vega/Managers` | Глобальные реестры ресурсов (`StaticMeshManager`, `TextureManager`, `MaterialManager`, `ShaderManager`, …) |
 | `Vega/Source/Vega/Scene` | `Scene`/`Entity` поверх EnTT, `Components/`, `Systems/` |
 | `Vega/Source/Vega/Plugins` | `PluginLibrary` — загрузка DLL и поиск экспортированных функций |
-| `Vega/Source/Vega/ImGui` | Интерфейсы `ImGuiImpl`, обёртки текстур/фреймбуферов для ImGui, иконочные шрифты Font Awesome |
+| `Vega/Source/Vega/ImGui` | Интерфейсы `ImGuiImpl`, обёртки текстур/фреймбуферов для ImGui, кнопки заголовка вынесенных окон (`ImGuiViewportTitleBar`), иконочные шрифты Font Awesome |
 | `Vega/Source/Vega/Utils` | Собственный `Logger`/`Log`, `PluginData`, `magic_enum.hpp`, `utf8.hpp` |
 | `Vega/Source/Platform` | Платформенный код: `Platform.hpp` (макросы `VEGA_PLATFORM_*`), GLFW-окно/ввод, кастомный заголовок окна (`Desktop`/`Windows`/`Linux`/`MacOS`), OpenGL-бэкенд (заглушка), загрузчик плагинов (WinAPI / `dlopen`) |
 | `VegaPlugins/VegaVulkanRenderer` | Реализация `RendererBackend` на Vulkan, собирается в DLL — см. [renderer.md](renderer.md) |
@@ -113,6 +113,38 @@ Vulkan-бэкенд пересоздаёт swapchain вместе с depth-бу�
 `Application::GetIsHasCutsomTitleBar()` возвращает фактическое состояние окна. Если кастомного заголовка нет,
 Editor рисует меню без собственных кнопок окна.
 
+### Вынесенные окна (вторичные viewport'ы ImGui)
+
+Перетаскивание заголовка и docking остаются за ImGui: только ImGui-driven move возвращает окно в главный
+dockspace или объединяет с другим вынесенным окном. Платформа (`TitleBarMode::kResizeOnly`) делает только ресайз.
+
+- `ImGuiLayer` оборачивает `Platform_CreateWindow`/`Platform_DestroyWindow` GLFW-бэкенда (оригиналы вызываются,
+  `PlatformUserData`/`PlatformHandle` не подменяются) и ведёт реестр `GLFWwindow* → GLFWTitleBar` в режиме
+  `kResizeOnly`: только ресайз-границы и курсоры, caption-клики платформа не обрабатывает. Layout
+  (`SetTitleBarLayout`) таким тайтлбарам не нужен. Там же окну задаётся минимальный размер
+  (`glfwSetWindowSizeLimits`, 200×100): WM-ресайз не ограничен минимумом ImGui (`style.WindowMinSize`),
+  без limits окно сжимается до пикселя.
+- Драйвинг в `BeginGuiFrame`: до `ImGui_ImplGlfw_NewFrame` — `OnUpdate` тайтлбаров (курсоры, синтетический
+  `ButtonRelease`); после `ImGui::NewFrame` — клик по ресайз-границе hovered-окна стартует WM-ресайз и потребляется
+  (`FocusWindow` + `SetActiveID(MoveId)`), чтобы ImGui не начал move поверх WM (верхняя граница лежит внутри
+  заголовка). `io.ConfigWindowsMoveFromTitleBarOnly = true` (клик по фону окно не двигает).
+- Maximized-окно не «ездит» в развёрнутом состоянии: начатый ImGui-move заголовка до `ImGui::NewFrame`
+  передаётся оконному менеджеру (`GLFWTitleBar::StartCaptionMove`: X11 — `_NET_WM_MOVERESIZE`, Windows —
+  `SC_MOVE | HTCAPTION`), WM сам разворачивает окно обратно и продолжает перетаскивание — как у главного окна.
+  Клик потребляется (`SetActiveID(MoveId)`); docking в этом drag не участвует (окно развёрнуто).
+- Кнопки min/max/close и double-click maximize рисует `DrawViewportTitleBarButtons`
+  (`Vega/Source/Vega/ImGui/ImGuiViewportTitleBar.*`) реальными айтемами внутри заголовка ImGui — айтемы блокируют
+  старт перетаскивания. Double-click дополнительно потребляет клик (`SetActiveID(MoveId)`): иначе ImGui в конце
+  кадра начинает move и стягивает окно обратно из maximized. Editor вызывает её после `Begin` каждой панели; закрытие скрывает панель (флаги
+  `m_IsDraw…Panel`, возврат — меню Window). Вынесенные панели получают `NoResize | NoCollapse` (ресайз — WM,
+  double-click — maximize, а не collapse); `p_open` в `Begin` не передаётся (иначе ImGui рисует второй close),
+  `PlatformRequestClose` (Alt+F4) потребляет хелпер.
+- На Windows в `kResizeOnly` клиент покрывает весь rect окна (`WM_NCCALCSIZE`), все 8 границ эмулируются в
+  `WM_NCHITTEST`, окну добавляется `WS_THICKFRAME`: GLFW считает геометрию undecorated-окон без рамки, нативные
+  инсеты рассинхронизировали бы ImGui с реальным клиентом.
+- Объединённые floating dock-ноды и демо-окно сохраняют стандартный заголовок ImGui (кнопок хелпера нет);
+  ресайз-границы WM у них те же, клик по границе потребляется драйвингом и не конфликтует с грипами ImGui.
+
 ## Слои
 
 `Layer` — виртуальные `OnAttach(Ref<EventManager>)`, `OnDetach`, `OnUpdate(Timestep)`, `OnRender`, `OnGuiRender`.
@@ -188,7 +220,8 @@ auto meshes = StaticRefCast<StaticMeshManager>(Application::Get().GetManager("St
 ## Редактор
 
 - `EditorLayer` — кастомный заголовок окна (`DrawGuiTitlebar`, см. «Окно и кастомный заголовок»), главное меню, вьюпорт игры,
-  тестовая сцена с иерархией и одним мешем.
+  тестовая сцена с иерархией и одним мешем. Панели можно скрывать (меню Window) и выносить за пределы главного окна
+  (см. «Вынесенные окна»).
 - `SceneHierarchyPanel` — дерево сущностей.
 - `EntityPropsPanel` — свойства выбранной сущности; отрисовщики компонентов регистрируются через
   `EntityPropsPanel::RegisterComponentDescription<T>({ .Name, .DrawFunc })`.

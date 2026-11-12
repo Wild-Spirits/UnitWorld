@@ -51,9 +51,13 @@ namespace Vega
 
     }    // namespace
 
-    LinuxTitleBar::LinuxTitleBar(GLFWwindow* _Window) : GLFWTitleBar(_Window)
+    LinuxTitleBar::LinuxTitleBar(GLFWwindow* _Window, TitleBarMode _Mode) : GLFWTitleBar(_Window, _Mode)
     {
-        glfwSetWindowAttrib(_Window, GLFW_DECORATED, GLFW_FALSE);
+        // Secondary ImGui viewports are already undecorated, don't rewrite the Motif hints for them
+        if (glfwGetWindowAttrib(_Window, GLFW_DECORATED) == GLFW_TRUE)
+        {
+            glfwSetWindowAttrib(_Window, GLFW_DECORATED, GLFW_FALSE);
+        }
 
         // Can be nullptr if the cursor theme has no such shape: the default cursor is used then
         m_Cursors[kCursorResizeEW] = glfwCreateStandardCursor(GLFW_RESIZE_EW_CURSOR);
@@ -102,7 +106,8 @@ namespace Vega
             return;
         }
 
-        if (hit != TitleBarHit::kCaption)
+        // In resize-only mode the caption drag and double click belong to ImGui (docking)
+        if (IsResizeOnly() || hit != TitleBarHit::kCaption)
         {
             return;
         }
@@ -130,6 +135,8 @@ namespace Vega
 
         StartMoveResize(kNetWmMoveResizeMove);
     }
+
+    void LinuxTitleBar::StartCaptionMove() { StartMoveResize(kNetWmMoveResizeMove); }
 
     void LinuxTitleBar::StartMoveResize(long _Direction)
     {

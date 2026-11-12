@@ -17,13 +17,14 @@ namespace Vega
     class LinuxTitleBar : public GLFWTitleBar
     {
     public:
-        LinuxTitleBar(GLFWwindow* _Window);
+        LinuxTitleBar(GLFWwindow* _Window, TitleBarMode _Mode = TitleBarMode::kFull);
         virtual ~LinuxTitleBar();
 
         static bool IsSupported();
 
         virtual void OnUpdate() override;
         virtual void OnMouseButton(int _Button, int _Action) override;
+        virtual void StartCaptionMove() override;
 
     protected:
         void StartMoveResize(long _Direction);

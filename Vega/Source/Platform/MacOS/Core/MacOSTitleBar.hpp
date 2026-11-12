@@ -10,7 +10,7 @@ namespace Vega
     class MacOSTitleBar : public GLFWTitleBar
     {
     public:
-        MacOSTitleBar(GLFWwindow* _Window);
+        MacOSTitleBar(GLFWwindow* _Window, TitleBarMode _Mode = TitleBarMode::kFull);
         virtual ~MacOSTitleBar();
 
         virtual void OnUpdate() override;

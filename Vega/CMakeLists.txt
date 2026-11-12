@@ -96,6 +96,7 @@ set(SOURCES
     Source/Vega/ImGui/ImGuiImpl.hpp
     Source/Vega/ImGui/ImGuiTextureWrapper.hpp
     Source/Vega/ImGui/ImGuiFrameBufferWrapper.hpp
+    Source/Vega/ImGui/ImGuiViewportTitleBar.hpp                             Source/Vega/ImGui/ImGuiViewportTitleBar.cpp
 
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h
     # Source/Vega/ImGui/Plots/implot.cpp                           Source/Vega/ImGui/Plots/implot.h

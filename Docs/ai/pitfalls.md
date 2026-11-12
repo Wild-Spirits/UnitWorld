@@ -59,9 +59,18 @@
 - **`Window::Maximize/Minimize/Restore` отложенные** — применяются в `Window::OnUpdate`, `IsWindowMaximized()` сразу
   после вызова возвращает старое значение.
 - **Заголовок окна.** При кастомном заголовке клиент обязан каждый кадр вызывать `Window::SetTitleBarLayout`, добавляя
-  все интерактивные элементы заголовка: иначе клик по ним перетаскивает окно. Win32-код в `Platform/` вызывает
-  wide-char функции явно (`SetWindowLongPtrW`, `CallWindowProcW`): `UNICODE` для Vega не определён, а `#define UNICODE`
-  после `glfw3native.h` уже ничего не меняет.
+  все интерактивные элементы заголовка: иначе клик по ним перетаскивает окно. Правило относится к главному окну
+  (`TitleBarMode::kFull`); тайтлбарам вторичных viewport'ов (`kResizeOnly`) layout не нужен — они обрабатывают только
+  ресайз-границы. Win32-код в `Platform/` вызывает wide-char функции явно (`SetWindowLongPtrW`, `CallWindowProcW`):
+  `UNICODE` для Vega не определён, а `#define UNICODE` после `glfw3native.h` уже ничего не меняет.
+- **Вынесенные окна ImGui.** Обёртки `Platform_CreateWindow/DestroyWindow` в `ImGuiLayer` обязаны вызывать оригиналы
+  и не подменять `PlatformUserData`/`PlatformHandle` (на них завязаны все `Platform_*` колбэки GLFW-бэкенда);
+  тайтлбар уничтожается до `glfwDestroyWindow` (WinTitleBar восстанавливает wndproc). Caption-drag вторичных окон
+  должен оставаться за ImGui — иначе ломается docking. Вынесенные панели: `NoResize | NoCollapse` (double-click по
+  заголовку иначе сворачивает окно вместо maximize), `p_open` в `Begin` не передавать (ImGui рисует второй close),
+  `PlatformRequestClose` потребляет `DrawViewportTitleBarButtons`. На Windows у undecorated-окна клиент должен
+  покрывать весь rect окна: GLFW считает его геометрию без рамки (`AdjustWindowRectEx` для `WS_POPUP`), нативные
+  инсеты рассинхронизируют ImGui с реальным клиентом (дрейф позиции, обрезка контента).
 - **`AppConfig.json` не читается** — менять его бесполезно, пока не написан загрузчик.
 
 ## Шейдеры

@@ -66,6 +66,17 @@ namespace Vega
         Ref<Sampler> m_AppLogoSampler;
         Ref<ImGuiTextureWrapper> m_AppLogoImGuiTexture;
         bool m_IsDrawImGuiDemoWindow = false;
+        bool m_IsDrawScenePanel = true;
+        bool m_IsDrawViewportPanel = true;
+        bool m_IsDrawAssetsPanel = true;
+        bool m_IsDrawPropsPanel = true;
+        bool m_IsDrawEditorCameraPanel = true;
+        // Detachment state from the previous frame: window flags must be chosen before Begin
+        bool m_IsScenePanelDetached = false;
+        bool m_IsViewportPanelDetached = false;
+        bool m_IsAssetsPanelDetached = false;
+        bool m_IsPropsPanelDetached = false;
+        bool m_IsEditorCameraPanelDetached = false;
         WindowTitleBarLayout m_TitleBarLayout;
 
         Ref<Scene> m_ActiveScene;

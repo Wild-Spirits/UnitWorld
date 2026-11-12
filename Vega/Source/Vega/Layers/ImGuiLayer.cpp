@@ -3,13 +3,18 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
+#include "Platform/Desktop/Core/GLFWTitleBar.hpp"
 #include "Vega/Core/Application.hpp"
 #include "Vega/Events/EventDispatcher.hpp"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFA.inl"
 #include "Vega/ImGui/Fonts/ImGuiFontDefinesIconsFABrands.inl"
 
+#include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <glm/glm.hpp>
+
+#include <unordered_map>
+#include <utility>
 
 #define USE_CUSTOM_FONT true
 
@@ -20,6 +25,90 @@ namespace Vega
 
     // NOTE: Font viewer: https://fontdrop.info/#/?darkmode=true
     const std::string faFontsFolder = "Assets/Fonts/FA/";
+
+    namespace
+    {
+
+        // Minimum size of a secondary viewport window: the WM resize must keep the title bar with the window
+        // buttons and a bit of content visible. ImGui's own resize minimum (style.WindowMinSize) doesn't apply
+        // to WM-driven resizes, so it is enforced by GLFW size limits (WM_NORMAL_HINTS / WM_GETMINMAXINFO).
+        constexpr int kViewportMinWidth = 200;
+        constexpr int kViewportMinHeight = 100;
+
+        // Secondary ImGui viewports get a resize-only title bar: the caption drag stays with ImGui so that
+        // docking back into the main window (or into another viewport) keeps working
+        std::unordered_map<GLFWwindow*, Scope<GLFWTitleBar>> s_ViewportTitleBars;
+
+        void (*s_OriginalCreateWindow)(ImGuiViewport*) = nullptr;
+        void (*s_OriginalDestroyWindow)(ImGuiViewport*) = nullptr;
+
+        void ViewportCreateWindow(ImGuiViewport* _Viewport)
+        {
+            // The backend owns PlatformUserData/PlatformHandle and the input callbacks, keep them intact
+            s_OriginalCreateWindow(_Viewport);
+
+            if (!Application::Get().GetIsHasCutsomTitleBar())
+            {
+                return;
+            }
+
+            GLFWwindow* window = static_cast<GLFWwindow*>(_Viewport->PlatformHandle);
+            if (window == nullptr)
+            {
+                return;
+            }
+
+            glfwSetWindowSizeLimits(window, kViewportMinWidth, kViewportMinHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
+
+            if (Scope<GLFWTitleBar> titleBar = GLFWTitleBar::Create(window, TitleBarMode::kResizeOnly))
+            {
+                s_ViewportTitleBars[window] = std::move(titleBar);
+            }
+        }
+
+        void ViewportDestroyWindow(ImGuiViewport* _Viewport)
+        {
+            // Destroy the title bar while the platform window is still alive (it restores the wndproc on Windows)
+            if (GLFWwindow* window = static_cast<GLFWwindow*>(_Viewport->PlatformHandle))
+            {
+                s_ViewportTitleBars.erase(window);
+            }
+
+            s_OriginalDestroyWindow(_Viewport);
+        }
+
+        // A maximized window must not slide around: hand the just-started caption drag to the window manager,
+        // which restores the window and keeps dragging it natively (like the main window's caption)
+        void HandOffMaximizedWindowMove()
+        {
+            ImGuiWindow* movingWindow = GImGui->MovingWindow;
+            if (movingWindow == nullptr || !movingWindow->ViewportOwned ||
+                movingWindow->Viewport == ImGui::GetMainViewport())
+            {
+                return;
+            }
+
+            GLFWwindow* window = static_cast<GLFWwindow*>(movingWindow->Viewport->PlatformHandle);
+            if (window == nullptr || glfwGetWindowAttrib(window, GLFW_MAXIMIZED) == GLFW_FALSE)
+            {
+                return;
+            }
+
+            auto titleBarIt = s_ViewportTitleBars.find(window);
+            if (titleBarIt == s_ViewportTitleBars.end())
+            {
+                return;
+            }
+
+            ImGui::StopMouseMovingWindow();
+            titleBarIt->second->StartCaptionMove();
+
+            // Consume the click like the resize border driver: no ImGui move until the (synthetic) button release
+            ImGui::FocusWindow(movingWindow);
+            ImGui::SetActiveID(movingWindow->MoveId, movingWindow);
+        }
+
+    }    // namespace
 
     ImGuiLayer::ImGuiLayer() : GuiLayer("ImGuiLayer") { }
 
@@ -78,16 +167,35 @@ namespace Vega
             default: VEGA_CORE_ASSERT(false, "Unknown RendererAPI!");
         }
 
+        // Detached panels move from the caption only: a resize border click must not start an ImGui move
+        io.ConfigWindowsMoveFromTitleBarOnly = true;
+
+        ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+        if (platformIO.Platform_CreateWindow != nullptr && platformIO.Platform_DestroyWindow != nullptr)
+        {
+            s_OriginalCreateWindow = platformIO.Platform_CreateWindow;
+            s_OriginalDestroyWindow = platformIO.Platform_DestroyWindow;
+            platformIO.Platform_CreateWindow = ViewportCreateWindow;
+            platformIO.Platform_DestroyWindow = ViewportDestroyWindow;
+        }
+
         m_ImGuiImpl->SetImGuiGlobalData(ImGui::GetCurrentContext(), &allocFunc, &freeFunc, &userData);
         m_ImGuiImpl->Init();
     }
 
     void ImGuiLayer::OnDetach()
     {
+        // Title bars are destroyed while their GLFW windows are still alive; the renderer shutdown below
+        // destroys the platform windows itself
+        s_ViewportTitleBars.clear();
+
         m_ImGuiImpl->Shutdown();
         ImGui_ImplGlfw_Shutdown();
 
         ImGui::DestroyContext();
+
+        s_OriginalCreateWindow = nullptr;
+        s_OriginalDestroyWindow = nullptr;
     }
 
     void ImGuiLayer::OnUpdate(Timestep _Timestep) { }
@@ -99,10 +207,30 @@ namespace Vega
         ImGuiIO& io = ImGui::GetIO();
 
         Application& app = Application::Get();
+
+        // Before the backend sets the ImGui cursor: the resize cursor of a viewport title bar must win
+        for (auto& [window, titleBar] : s_ViewportTitleBars)
+        {
+            // A minimized window has a stale cursor pos, don't let it freeze the cursor state
+            if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_FALSE)
+            {
+                titleBar->OnUpdate();
+            }
+        }
+
         if (app.GetIsHasCutsomTitleBar())
         {
             // The platform shows the resize cursor there
-            if (app.GetWindow()->IsCursorOnResizeBorder())
+            bool isOnResizeBorder = app.GetWindow()->IsCursorOnResizeBorder();
+            for (const auto& [window, titleBar] : s_ViewportTitleBars)
+            {
+                if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_FALSE)
+                {
+                    isOnResizeBorder |= titleBar->IsCursorOnResizeBorder();
+                }
+            }
+
+            if (isOnResizeBorder)
             {
                 io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
             }
@@ -114,7 +242,35 @@ namespace Vega
 
         m_ImGuiImpl->NewFrame();
         ImGui_ImplGlfw_NewFrame();
+        // Before ImGui::NewFrame applies the move: a maximized viewport window is dragged by the WM instead
+        HandOffMaximizedWindowMove();
         ImGui::NewFrame();
+
+        // After NewFrame, so the click state is up to date: start a WM resize from a viewport resize border
+        if (ImGui::IsMouseClicked(0))
+        {
+            for (auto& [window, titleBar] : s_ViewportTitleBars)
+            {
+                // GLFW_HOVERED: the window-local cursor pos alone would also hit overlapped windows
+                if (glfwGetWindowAttrib(window, GLFW_HOVERED) == GLFW_FALSE || !titleBar->IsCursorOnResizeBorder())
+                {
+                    continue;
+                }
+
+                titleBar->OnMouseButton(GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS);
+
+                // Consume the click like a NoMove window: the top border lies inside the title bar rect,
+                // otherwise ImGui would start moving the window on top of the WM resize
+                if (ImGuiViewport* viewport = ImGui::FindViewportByPlatformHandle(window))
+                {
+                    if (ImGuiWindow* imWindow = static_cast<ImGuiViewportP*>(viewport)->Window)
+                    {
+                        ImGui::FocusWindow(imWindow);
+                        ImGui::SetActiveID(imWindow->MoveId, imWindow);
+                    }
+                }
+            }
+        }
 
         return true;
     }
@@ -165,10 +321,10 @@ namespace Vega
         colors[ImGuiCol_TabUnfocused] = ImVec4 { 0.15f, 0.1505f, 0.151f, 1.0f };
         colors[ImGuiCol_TabUnfocusedActive] = ImVec4 { 0.2f, 0.205f, 0.21f, 1.0f };
 
-        // Title
-        colors[ImGuiCol_TitleBg] = ImVec4 { 0.15f, 0.1505f, 0.151f, 1.0f };
-        colors[ImGuiCol_TitleBgActive] = ImVec4 { 0.15f, 0.1505f, 0.151f, 1.0f };
-        colors[ImGuiCol_TitleBgCollapsed] = ImVec4 { 0.15f, 0.1505f, 0.151f, 1.0f };
+        // Title: match the main window caption (see EditorLayer::DrawGuiTitlebar)
+        colors[ImGuiCol_TitleBg] = ImGui::ColorConvertU32ToFloat4(0xff1b1b1b);
+        colors[ImGuiCol_TitleBgActive] = ImGui::ColorConvertU32ToFloat4(0xff1b1b1b);
+        colors[ImGuiCol_TitleBgCollapsed] = ImGui::ColorConvertU32ToFloat4(0xff1b1b1b);
     }
 
     void ImGuiLayer::LoadCustomFonts()

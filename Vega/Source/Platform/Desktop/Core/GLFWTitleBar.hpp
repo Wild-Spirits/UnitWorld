@@ -42,24 +42,40 @@ namespace Vega
         };
     }    // namespace TitleBarResizeBorderFlagBits
 
+    // Who owns the caption drag: the platform (main window) or the client. Secondary ImGui viewports use
+    // kResizeOnly: their caption drag must stay with ImGui, otherwise docking stops working.
+    enum class TitleBarMode
+    {
+        kFull,
+        kResizeOnly,
+    };
+
     // Platform part of the custom title bar: removes the system caption and makes the client title bar behave
     // like a native one (window dragging, resizing, double click). The title bar itself is drawn by the client.
     class GLFWTitleBar
     {
     public:
-        GLFWTitleBar(GLFWwindow* _Window) : m_Window(_Window) { }
+        GLFWTitleBar(GLFWwindow* _Window, TitleBarMode _Mode = TitleBarMode::kFull) :
+            m_Window(_Window), m_Mode(_Mode)
+        {
+        }
         virtual ~GLFWTitleBar() = default;
 
         // Returns nullptr if the custom title bar isn't supported: the system one is used then
-        static Scope<GLFWTitleBar> Create(GLFWwindow* _Window);
+        static Scope<GLFWTitleBar> Create(GLFWwindow* _Window, TitleBarMode _Mode = TitleBarMode::kFull);
 
         // Called every frame before polling the window events
         virtual void OnUpdate() { }
         // Called from the GLFW mouse button callback
         virtual void OnMouseButton(int _Button, int _Action) { }
+        // Hands the caption drag to the window manager: a maximized secondary viewport is restored and keeps
+        // dragging natively (like the main window). No-op where unsupported: the drag stays blocked there.
+        virtual void StartCaptionMove() { }
 
         virtual bool IsHasNativeButtons() const { return false; }
         virtual float GetNativeButtonsWidth() const { return 0.0f; }
+
+        bool IsResizeOnly() const { return m_Mode == TitleBarMode::kResizeOnly; }
 
         void SetLayout(WindowTitleBarLayout&& _Layout) { m_Layout = std::move(_Layout); }
 
@@ -84,6 +100,7 @@ namespace Vega
 
     protected:
         GLFWwindow* m_Window = nullptr;
+        TitleBarMode m_Mode = TitleBarMode::kFull;
         WindowTitleBarLayout m_Layout;
     };
 

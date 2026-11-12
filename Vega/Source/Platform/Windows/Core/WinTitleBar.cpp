@@ -98,6 +98,19 @@ namespace Vega
                     }
 
                     NCCALCSIZE_PARAMS* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(_LParam);
+
+                    if (titleBar->IsResizeOnly())
+                    {
+                        // Client = the whole window rect: GLFW sizes and positions undecorated windows without
+                        // a frame (AdjustWindowRectEx with WS_POPUP), any native inset would desync ImGui from
+                        // the real client. All resize borders are emulated in WM_NCHITTEST.
+                        if (IsZoomed(_HWnd))
+                        {
+                            AdjustMaximizedClientRectForAutoHideTaskbar(_HWnd, params->rgrc[0]);
+                        }
+                        return 0;
+                    }
+
                     LONG originalTop = params->rgrc[0].top;
 
                     // The system computes the standard frame: left, right and bottom borders stay native
@@ -129,7 +142,27 @@ namespace Vega
                     POINT point = { GET_X_LPARAM(_LParam), GET_Y_LPARAM(_LParam) };
                     ScreenToClient(_HWnd, &point);
 
-                    switch (titleBar->HitTest({ static_cast<float>(point.x), static_cast<float>(point.y) }))
+                    TitleBarHit titleBarHit =
+                        titleBar->HitTest({ static_cast<float>(point.x), static_cast<float>(point.y) });
+
+                    if (titleBar->IsResizeOnly())
+                    {
+                        switch (titleBarHit)
+                        {
+                            case TitleBarHit::kResizeLeft: return HTLEFT;
+                            case TitleBarHit::kResizeRight: return HTRIGHT;
+                            case TitleBarHit::kResizeTop: return HTTOP;
+                            case TitleBarHit::kResizeBottom: return HTBOTTOM;
+                            case TitleBarHit::kResizeTopLeft: return HTTOPLEFT;
+                            case TitleBarHit::kResizeTopRight: return HTTOPRIGHT;
+                            case TitleBarHit::kResizeBottomLeft: return HTBOTTOMLEFT;
+                            case TitleBarHit::kResizeBottomRight: return HTBOTTOMRIGHT;
+                            // The caption drag belongs to ImGui (docking)
+                            default: return HTCLIENT;
+                        }
+                    }
+
+                    switch (titleBarHit)
                     {
                         case TitleBarHit::kResizeTop: return HTTOP;
                         case TitleBarHit::kCaption: return HTCAPTION;
@@ -153,7 +186,7 @@ namespace Vega
 
     }    // namespace
 
-    WinTitleBar::WinTitleBar(GLFWwindow* _Window) : GLFWTitleBar(_Window)
+    WinTitleBar::WinTitleBar(GLFWwindow* _Window, TitleBarMode _Mode) : GLFWTitleBar(_Window, _Mode)
     {
         HWND hWnd = glfwGetWin32Window(_Window);
 
@@ -163,6 +196,14 @@ namespace Vega
         SetPropW(hWnd, kOriginalWndProcProp, reinterpret_cast<HANDLE>(originalWndProc));
         SetPropW(hWnd, kTitleBarProp, static_cast<HANDLE>(this));
         SetWindowLongPtrW(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(TitleBarWndProc));
+
+        // GLFW creates undecorated windows as WS_POPUP without WS_THICKFRAME: the native resize loop
+        // (HT* in WM_NCHITTEST) and the DWM shadow need it
+        if (IsResizeOnly() && glfwGetWindowAttrib(_Window, GLFW_DECORATED) == GLFW_FALSE)
+        {
+            LONG_PTR style = GetWindowLongPtrW(hWnd, GWL_STYLE);
+            SetWindowLongPtrW(hWnd, GWL_STYLE, style | WS_THICKFRAME);
+        }
 
         // Dark window border on Windows 11
         BOOL isDarkMode = TRUE;
@@ -183,6 +224,15 @@ namespace Vega
         }
 
         UpdateWindowFrame(hWnd);
+    }
+
+    void WinTitleBar::StartCaptionMove()
+    {
+        // The native move loop restores a maximized window and keeps dragging it (like the main window's
+        // HTCAPTION). Blocks until the drag ends, same as the main window's caption drag.
+        HWND hWnd = glfwGetWin32Window(m_Window);
+        ReleaseCapture();
+        SendMessageW(hWnd, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
     }
 
     float WinTitleBar::GetResizeBorderWidth() const
