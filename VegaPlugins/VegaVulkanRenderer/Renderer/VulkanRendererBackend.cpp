@@ -357,9 +357,16 @@ namespace Vega
 
         if (m_IsNeedRecreateSwapchain)
         {
-            VEGA_CORE_TRACE("m_IsNeedRecreateSwapchain");
+            // Log the recreation details only on the first frame of a resize burst: the logger has no level
+            // filter, so per-frame chatter would flood the console during interactive resize
+            bool logDetails = !m_IsResizeRecreationBurst;
+            m_IsResizeRecreationBurst = true;
+            if (logDetails)
+            {
+                VEGA_CORE_TRACE("m_IsNeedRecreateSwapchain");
+            }
             // RecreateSwapchain waits for the device idle itself before freeing the old resources
-            if (!RecreateSwapchain())
+            if (!RecreateSwapchain(logDetails))
             {
                 VEGA_CORE_TRACE("Failed to recreate swapchain!");
                 // VEGA_CORE_ASSERT(false, "Failed to recreate swapchain!");
@@ -367,18 +374,39 @@ namespace Vega
             }
             // The device is idle after the recreation: everything queued for deletion is safe to free
             FlushDeletionQueue(UINT64_MAX);
-            // TODO: Recreate depth buffer texture
 
-            if (m_VkSwapchain.GetImagesCount() != m_DepthBufferTextures.size())
-            {
-                // TODO: Need to destroy and recreate depth buffer textures array on swapchain images count change
-                VEGA_CORE_WARN(
-                    "TODO: Need to destroy and recreate depth buffer textures array on swapchain images count change");
-            }
             // The swapchain extent comes from the surface and can differ from the size reported by the window
             Ref<Window> window = Application::Get().GetWindow();
             VkExtent2D swapchainExtent = m_VkSwapchain.GetExtent();
-            for (size_t i = 0; i < m_VkSwapchain.GetImagesCount(); ++i)
+
+            // Keep the depth array sized to the swapchain image count: the loop below indexes it by the new
+            // count, which would go out of bounds if the image count grew
+            size_t imageCount = m_VkSwapchain.GetImagesCount();
+            while (m_DepthBufferTextures.size() > imageCount)
+            {
+                m_DepthBufferTextures.back()->OnDetach();
+                m_DepthBufferTextures.pop_back();
+            }
+            for (size_t i = m_DepthBufferTextures.size(); i < imageCount; ++i)
+            {
+                Ref<VulkanTexture> depthBufferTexture = CreateRef<VulkanTexture>();
+                depthBufferTexture->VulkanCreate(
+                    std::format("{}_depth_buffer_{}", window->GetTitle(), i),
+                    TextureProps {
+                        .Type = TextureProps::TextureType::k2D,
+                        .Width = swapchainExtent.width,
+                        .Height = swapchainExtent.height,
+                        .ChannelCount = m_VkDeviceWrapper.GetDepthChannelCount(),
+                        .MipLevels = 1,
+                        .ArraySize = 1,
+                    },
+                    m_VkDeviceWrapper.GetDepthFormat(), VK_IMAGE_TILING_OPTIMAL,
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                m_DepthBufferTextures.push_back(depthBufferTexture);
+            }
+
+            for (size_t i = 0; i < imageCount; ++i)
             {
                 Ref<VulkanTexture> depthBufferTexture = m_DepthBufferTextures[i];
                 depthBufferTexture->Resize(std::format("{}_depth_buffer_{}", window->GetTitle(), i),
@@ -388,6 +416,10 @@ namespace Vega
             m_IsNeedRecreateSwapchain = false;
             // Fall through to acquire from the new swapchain and render this frame: skipping the frame here
             // made the content lag behind the window frame during interactive resize
+        }
+        else
+        {
+            m_IsResizeRecreationBurst = false;
         }
 
         VkResult inFlightResult =
@@ -597,7 +629,7 @@ namespace Vega
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, 0, 0, 0, 1, &barrier);
     }
 
-    bool VulkanRendererBackend::RecreateSwapchain()
+    bool VulkanRendererBackend::RecreateSwapchain(bool _LogDetails)
     {
         VkDevice logicalDevice = m_VkDeviceWrapper.GetLogicalDevice();
         auto _Window = Application::Get().GetWindow();
@@ -612,23 +644,29 @@ namespace Vega
 
         m_VkDeviceWrapper.DetectDepthFormat();
 
-        if (!m_VkSwapchain.Recreate(m_VkContext, m_VkDeviceWrapper, m_RendererFlags, m_VkSurface))
+        size_t oldImageCount = m_VkSwapchain.GetImagesCount();
+        if (!m_VkSwapchain.Recreate(m_VkContext, m_VkDeviceWrapper, m_RendererFlags, m_VkSurface, _LogDetails))
         {
             VEGA_CORE_ASSERT(false, "Failed to recreate swapchain!");
             return false;
         }
 
-        for (auto& graphicsCommandBuffer : m_GraphicsCommandBuffer)
+        // Command buffers are reset every frame in FrameCommandListBegin, so they can be reused as long as the
+        // swapchain image count is unchanged: reallocating them on every resize frame was pure churn
+        if (m_VkSwapchain.GetImagesCount() != oldImageCount)
         {
-            if (graphicsCommandBuffer)
+            for (auto& graphicsCommandBuffer : m_GraphicsCommandBuffer)
             {
-                vkFreeCommandBuffers(logicalDevice, m_VkDeviceWrapper.GetGraphicsCommandPool(), 1,
-                                     &graphicsCommandBuffer);
+                if (graphicsCommandBuffer)
+                {
+                    vkFreeCommandBuffers(logicalDevice, m_VkDeviceWrapper.GetGraphicsCommandPool(), 1,
+                                         &graphicsCommandBuffer);
+                }
             }
-        }
-        m_GraphicsCommandBuffer.clear();
+            m_GraphicsCommandBuffer.clear();
 
-        CreateGraphicsCommandBuffer(_Window);
+            CreateGraphicsCommandBuffer(_Window);
+        }
 
         return true;
     }

@@ -140,7 +140,7 @@ namespace Vega
         static inline VulkanRendererBackend* GetVkRendererBackend() { return m_Instance; }
 
     private:
-        bool RecreateSwapchain();
+        bool RecreateSwapchain(bool _LogDetails = true);
         bool CreateGraphicsCommandBuffer(Ref<Window> _Window);
 
         // TODO: Add arg to select winding mode
@@ -195,6 +195,9 @@ namespace Vega
         std::vector<Ref<VulkanTexture>> m_DepthBufferTextures;
 
         bool m_IsNeedRecreateSwapchain = false;
+        // True while consecutive frames keep recreating the swapchain (interactive resize): gates the
+        // recreation log chatter to the first frame of a burst, since the logger has no level filter
+        bool m_IsResizeRecreationBurst = false;
 
         uint32_t m_CurrentFrame = 0;
         uint32_t m_ImageIndex = 0;

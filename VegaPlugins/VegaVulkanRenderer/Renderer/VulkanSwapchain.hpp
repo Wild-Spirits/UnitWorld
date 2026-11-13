@@ -16,9 +16,10 @@ namespace Vega
         VulkanSwapchain() = default;
 
         bool Create(const VulkanContext& _VkContex, const VulkanDeviceWrapper& _VkDeviceWrapper,
-                    RendererBackendConfig::Flags _RendererFlags, VkSurfaceKHR _VkSurface);
+                    RendererBackendConfig::Flags _RendererFlags, VkSurfaceKHR _VkSurface,
+                    VkSwapchainKHR _OldSwapchain = VK_NULL_HANDLE, bool _LogDetails = true);
         bool Recreate(const VulkanContext& _VkContex, const VulkanDeviceWrapper& _VkDeviceWrapper,
-                      RendererBackendConfig::Flags _RendererFlags, VkSurfaceKHR _VkSurface);
+                      RendererBackendConfig::Flags _RendererFlags, VkSurfaceKHR _VkSurface, bool _LogDetails = true);
         void Destroy(const VulkanContext& _VkContex, const VulkanDeviceWrapper& _VkDeviceWrapper);
 
         inline uint32_t GetMaxFramesInFlight() const { return m_MaxFramesInFlight; }
@@ -40,6 +41,11 @@ namespace Vega
         inline VkSwapchainKHR GetSwapchainHandle() const { return m_VkSwapchain; }
 
     private:
+        // Destroys only the image views we own plus the retired swapchain handle; the images belong to the
+        // swapchain itself. Caller must guarantee the device is idle.
+        void DestroyRetired(const VulkanContext& _VkContex, const VulkanDeviceWrapper& _VkDeviceWrapper,
+                            VkSwapchainKHR _OldSwapchain, const std::vector<Ref<VulkanTexture>>& _OldTextures);
+
         VulkanSwapchainSupportInfo m_SwapchainSupportInfo;
 
         VkSurfaceFormatKHR m_ImageFormat = {};

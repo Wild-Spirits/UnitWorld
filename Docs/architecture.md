@@ -71,6 +71,14 @@ Vulkan-бэкенд пересоздаёт swapchain вместе с depth-бу�
 давало «шторм» пересозданий во время интерактивного ресайза. Размер depth-буферов берётся из extent swapchain,
 а не из размера окна.
 
+Пересоздание идёт без разрыва презентации: новый swapchain создаётся с передачей старого handle через `oldSwapchain`
+(`VulkanSwapchain::Recreate`), и только после создания уничтожаются старые image views и handle — иначе композитор
+показывал окно со старой геометрией и рамка дёргалась при интерактивном ресайзе. Устройство останавливается одним
+`vkDeviceWaitIdle` в `RecreateSwapchain` (второй idle в `VulkanSwapchain::Destroy` убран — он удваивал остановку
+устройства на каждый кадр ресайза и тормозил рендер viewport'ов). Command buffers переиспользуются, пока число images
+swapchain не изменилось (они и так сбрасываются каждый кадр в `FrameCommandListBegin`); массив depth-буферов
+подгоняется под число images swapchain.
+
 `Time::GetTime()` (`Vega/Core/Time.hpp`) — монотонное время в секундах на `std::chrono::steady_clock` с
 неопределённым началом отсчёта, имеет смысл только разность. `Timestep` — длительность кадра в секундах (`float`),
 неявно приводится к `float`; передаётся в `Layer::OnUpdate(Timestep)`, а слой сам передаёт его в `Scene::OnUpdate`.

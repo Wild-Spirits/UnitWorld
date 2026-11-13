@@ -52,6 +52,14 @@
 - **Ресайз не пропускает кадр**: swapchain пересоздаётся в `FramePrepareWindowSurface`, и кадр рендерится сразу;
   `VK_SUBOPTIMAL_KHR` на present терпится, пересоздание — только на `OUT_OF_DATE` или реальную смену размера
   framebuffer. Пропуск кадра при ресайзе вызывал лаг содержимого за рамкой окна — не возвращай его.
+- **`VulkanSwapchain::Destroy` требует idle от вызывающей стороны.** Внутри него больше нет `vkDeviceWaitIdle`:
+  `RecreateSwapchain` ждёт idle перед пересозданием, а `OnWindowDestroy` вызывается после `Application::WaitIdle`.
+  Не добавляй второй idle — он удваивал остановку устройства на каждый кадр ресайза. Пересоздание передаёт старый
+  swapchain через `oldSwapchain` и уничтожает его только после создания нового (без разрыва презентации).
+- **Логгер не фильтрует уровни.** `Logger::Trace/Info/…` пишут в консоль безусловно (`Vega/Utils/Logger.hpp`),
+  фильтра нет ни compile-time, ни runtime. Понижение INFO→TRACE само по себе спам не убирает: детальные логи
+  пересоздания swapchain гейтятся по всплеску ресайза (`m_IsResizeRecreationBurst`, параметр `_LogDetails`) —
+  печатаются только в первом кадре серии пересозданий, а не каждый кадр.
 - **Размер окна логический, framebuffer — физический.** На Wayland с масштабированием `Window::GetWidth/GetHeight`
   возвращают логические координаты, а `GetFramebufferSize()` — физические пиксели (могут отличаться, например, в 1.6
   раза). Swapchain, `renderArea` и depth-буфер создаются по физическому размеру (`VulkanSwapchain::Create`,

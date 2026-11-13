@@ -56,6 +56,11 @@ GPU-ресурсы **освобождаются явно**, деструктор
   `ImGui_ImplVulkanH_*`); своих хуков плагин не ставит. `VulkanImGuiImpl::Init` передаёт `QueueFamily`
   (graphics-семейство) — он нужен бэкенду для WSI-проверки и создания поверхностей viewport'ов.
 - Ресурсы на кадр (семафоры, фенсы, staging-буферы, command buffers) — по `VulkanSwapchain::GetMaxFramesInFlight()`.
+- Пересоздание swapchain (`VulkanSwapchain::Recreate`) идёт с передачей старого handle через `oldSwapchain`
+  (без разрыва презентации) и одним `vkDeviceWaitIdle` в `RecreateSwapchain`; `VulkanSwapchain::Destroy` idle не
+  ждёт — его гарантирует вызывающая сторона. Command buffers переиспользуются при неизменном числе images; массив
+  depth-буферов sized по числу images swapchain. Детальные логи пересоздания гейтятся по всплеску ресайза
+  (`_LogDetails`), т.к. логгер не фильтрует уровни.
 - Загрузка в device-local `RenderBuffer` с `_IncludeInFrameWorkload = false` не ждёт очередь: копия идёт через
   временный staging-буфер в отдельном command buffer (`EndAndSubmitSingleUseCommandBuffer`), барьеры упорядочивают её
   с кадрами до и после, а буфер и command buffer освобождаются через очередь отложенного удаления.
